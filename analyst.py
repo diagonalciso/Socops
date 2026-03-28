@@ -636,7 +636,13 @@ One sentence: the specific condition under which this should go to Tier 2.
 
 
 def analyze(alert):
-    """Dispatch: OpenRouter → Ollama (local) → rule-based stub."""
+    """Dispatch: level <=7 → Ollama only; level >7 → OpenRouter → Ollama → stub."""
+    level = alert.get("rule_level", 0)
+    if level <= 7:
+        result = analyze_with_ollama(alert)
+        if result:
+            return result
+        return analyze_stub(alert)
     if OPENROUTER_API_KEY:
         rate_limited = (_openrouter_rate_reset is not None and
                         time.time() * 1000 < _openrouter_rate_reset)
