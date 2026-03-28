@@ -1,0 +1,6 @@
+.env
+socops.db
+__pycache__/
+*.py[cod]
+*.bak
+socops.service.local
