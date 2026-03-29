@@ -553,79 +553,9 @@ class Handler(http.server.BaseHTTPRequestHandler):
 # Shared nav snippet (used in all pages)
 # ---------------------------------------------------------------------------
 
-HIGH_SEVERITY_CSS = """
-#hs-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:9000;align-items:center;justify-content:center;}
-#hs-overlay.show{display:flex;}
-#hs-box{background:#1a0000;border:2px solid #ff4444;border-radius:10px;padding:28px 32px;min-width:360px;max-width:520px;box-shadow:0 0 40px #ff444488;}
-#hs-box h2{margin:0 0 6px;color:#ff4444;font-size:1.2rem;display:flex;align-items:center;gap:8px;}
-#hs-box h2 .pulse{width:12px;height:12px;border-radius:50%;background:#ff4444;animation:hspulse 1s infinite;}
-@keyframes hspulse{0%,100%{opacity:1;transform:scale(1);}50%{opacity:.4;transform:scale(1.4);}}
-#hs-level{display:inline-block;background:#ff4444;color:#fff;font-weight:700;font-size:1.4rem;border-radius:6px;padding:2px 12px;margin-bottom:10px;}
-#hs-desc{color:#ffc0c0;font-size:.95rem;margin-bottom:6px;}
-#hs-agent{color:#ff8888;font-size:.85rem;margin-bottom:16px;}
-#hs-queue{color:#ff6666;font-size:.8rem;font-style:italic;margin-bottom:16px;}
-#hs-btns{display:flex;gap:10px;}
-#hs-goto{background:#ff4444;color:#fff;border:none;border-radius:6px;padding:8px 20px;font-size:.9rem;cursor:pointer;font-weight:600;}
-#hs-goto:hover{background:#ff6666;}
-#hs-dismiss{background:transparent;color:#ff8888;border:1px solid #ff4444;border-radius:6px;padding:8px 20px;font-size:.9rem;cursor:pointer;}
-#hs-dismiss:hover{background:#ff444422;}
-"""
+HIGH_SEVERITY_CSS = ""  # disabled
 
-HIGH_SEVERITY_JS = """
-(function(){
-  let _hsLastSeen = new Date().toISOString();
-  let _hsQueue = [];
-  let _hsShowing = false;
-  let _hsSeen = new Set();
-
-  function _hsShow(alert){
-    _hsShowing = true;
-    document.getElementById('hs-level').textContent = alert.rule_level;
-    document.getElementById('hs-desc').textContent = alert.rule_description;
-    document.getElementById('hs-agent').textContent = 'Agent: ' + alert.agent_name;
-    const remaining = _hsQueue.length;
-    document.getElementById('hs-queue').textContent = remaining > 0 ? (remaining + ' more high-severity alert' + (remaining>1?'s':'') + ' pending') : '';
-    document.getElementById('hs-goto').onclick = function(){
-      window.location.href = '/?highlight=' + alert.id;
-    };
-    document.getElementById('hs-overlay').classList.add('show');
-  }
-
-  function _hsDismiss(){
-    document.getElementById('hs-overlay').classList.remove('show');
-    _hsShowing = false;
-    if(_hsQueue.length > 0){
-      const next = _hsQueue.shift();
-      setTimeout(()=>_hsShow(next), 400);
-    }
-  }
-
-  function _hsPoll(){
-    fetch('/api/alerts/high-severity?since=' + encodeURIComponent(_hsLastSeen) + '&min_level=10')
-      .then(r=>r.json()).then(alerts=>{
-        if(!alerts.length) return;
-        _hsLastSeen = new Date().toISOString();
-        for(const a of alerts){
-          if(!_hsSeen.has(a.id)){
-            _hsSeen.add(a.id);
-            _hsQueue.push(a);
-          }
-        }
-        if(!_hsShowing && _hsQueue.length > 0){
-          _hsShow(_hsQueue.shift());
-        }
-      }).catch(()=>{});
-  }
-
-  document.addEventListener('DOMContentLoaded', function(){
-    document.getElementById('hs-dismiss').addEventListener('click', _hsDismiss);
-    // On first load, look back 5 minutes to catch recently arrived alerts
-    _hsLastSeen = new Date(Date.now() - 5*60*1000).toISOString();
-    setTimeout(_hsPoll, 1500);
-    setInterval(_hsPoll, 30000);
-  });
-})();
-"""
+HIGH_SEVERITY_JS = ""  # disabled
 
 def _nav(active):
     links = [("Dashboard","/dashboard"),("Queue","/"),("Live","/live"),("Exclusions","/analysis-exclusions"),
@@ -634,20 +564,7 @@ def _nav(active):
         f'<a href="{u}" class="{"active" if n==active else ""}">{n}</a>'
         for n,u in links
     )
-    overlay = '''<div id="hs-overlay">
-  <div id="hs-box">
-    <h2><span class="pulse"></span>HIGH SEVERITY ALERT</h2>
-    <div id="hs-level"></div>
-    <div id="hs-desc"></div>
-    <div id="hs-agent"></div>
-    <div id="hs-queue"></div>
-    <div id="hs-btns">
-      <button id="hs-goto">Go to event</button>
-      <button id="hs-dismiss">Dismiss</button>
-    </div>
-  </div>
-</div>'''
-    return f'<nav>{items}</nav>{overlay}'
+    return f'<nav>{items}</nav>'
 
 COMMON_CSS = """
 :root{
@@ -729,7 +646,16 @@ input:focus,select:focus,textarea:focus{border-color:var(--accent);}
 .form-actions{display:flex;gap:8px;justify-content:flex-end;margin-top:16px;}
 """ + HIGH_SEVERITY_CSS
 
-PAGE_FOOTER = """<script>""" + HIGH_SEVERITY_JS + """</script>\n</body>\n</html>"""
+PAGE_FOOTER = """
+<div id="toast" style="position:fixed;bottom:24px;right:24px;background:#238636;color:#fff;padding:10px 20px;border-radius:8px;font-size:13px;font-weight:600;z-index:9999;display:none;box-shadow:0 4px 16px rgba(0,0,0,.4)"></div>
+<script>
+function _toast(msg,color){
+  const t=document.getElementById('toast');
+  t.textContent=msg; t.style.background=color||'#238636'; t.style.display='block';
+  setTimeout(()=>t.style.display='none',2500);
+}
+</script>
+<script>""" + HIGH_SEVERITY_JS + """</script>\n</body>\n</html>"""
 
 
 # ---------------------------------------------------------------------------
@@ -976,7 +902,7 @@ function loadData(){
 function loadAlerts(){
   let url='/api/alerts?status='+currentFilter;
   if(currentCategory!=='all') url+='&category='+currentCategory;
-  fetch(url).then(r=>r.json()).then(data=>{
+  return fetch(url).then(r=>r.json()).then(data=>{
     alerts=data;
     if(currentView==='alerts') renderList();
   }).catch(()=>{});
@@ -1207,9 +1133,15 @@ function reanalyze(id){
 }
 
 function doAction(action){
-  if(!selectedId)return;
+  if(!selectedId){_toast('No alert selected','#b94040');return;}
+  const labels={'ack':'✓ Acknowledged','escalate':'↑ Escalated','fp':'✗ Marked FP','new':'↺ Reopened'};
+  const colors={'ack':'#238636','escalate':'#d47500','fp':'#555','new':'#1a73e8'};
   fetch('/api/alerts/'+selectedId+'/action',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action})})
-    .then(()=>{loadData();loadStats();selectAlert(selectedId);});
+    .then(r=>r.json()).then(d=>{
+      if(d.error){_toast('Error: '+d.error,'#b94040');return;}
+      _toast(labels[action]||action, colors[action]);
+      loadData();loadStats();selectAlert(selectedId);
+    }).catch(e=>_toast('Request failed: '+e.message,'#b94040'));
 }
 
 function doAssign(){
@@ -1330,7 +1262,9 @@ function mdToHtml(md){
     .replace(/\\n\\n/g,'<br><br>').replace(/\\n/g,' ');
 }
 
-loadStats(); loadAlerts();
+const _highlightId = new URLSearchParams(window.location.search).get('highlight');
+loadStats();
+loadAlerts().then(()=>{ if(_highlightId) selectAlert(parseInt(_highlightId)); });
 setInterval(()=>{loadData();loadStats();},60000);
 </script>
 """ + PAGE_FOOTER
