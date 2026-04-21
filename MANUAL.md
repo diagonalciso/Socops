@@ -1,733 +1,748 @@
 # SOCops User Manual
 
-**Version:** 1.0 · **Platform:** Self-hosted Linux · **Access:** `http://<server>:8081`
+**This manual teaches security analysts how to use SOCops to do their job.**
+
+Think of SOCops as a **smart assistant for your security alerts**. Your Wazuh system constantly generates security alarms. SOCops helps you:
+- Understand what each alarm means
+- Decide if it's important
+- Take action on it
+- Track related alarms together
+- Avoid seeing the same alarm over and over
+
+You don't need to be a computer expert to use SOCops. If you can use a web browser and a spreadsheet, you can use SOCops.
 
 ---
 
-## Table of Contents
+## How SOCops Fits Into Your Job
 
-1. [Overview](#1-overview)
-2. [Navigation](#2-navigation)
-3. [Alert Queue](#3-alert-queue)
-   - 3.1 [Understanding the Layout](#31-understanding-the-layout)
-   - 3.2 [Alert Severity Levels](#32-alert-severity-levels)
-   - 3.3 [Status Filters](#33-status-filters)
-   - 3.4 [Category Filters](#34-category-filters)
-   - 3.5 [Alerts View vs Groups View](#35-alerts-view-vs-groups-view)
-   - 3.6 [Searching Alerts](#36-searching-alerts)
-   - 3.7 [Selecting and Investigating an Alert](#37-selecting-and-investigating-an-alert)
-   - 3.8 [Threat Intel Enrichment](#38-threat-intel-enrichment)
-   - 3.9 [AI Analysis](#39-ai-analysis)
-   - 3.10 [Taking Action on an Alert](#310-taking-action-on-an-alert)
-   - 3.11 [Notes](#311-notes)
-   - 3.12 [Assigning Alerts](#312-assigning-alerts)
-   - 3.13 [Entity Timeline](#313-entity-timeline)
-   - 3.14 [Suppressing from an Alert](#314-suppressing-from-an-alert)
-   - 3.15 [Adding an Alert to a Case](#315-adding-an-alert-to-a-case)
-   - 3.16 [Exporting Alerts](#316-exporting-alerts)
-4. [Dashboard](#4-dashboard)
-5. [Cases](#5-cases)
-   - 5.1 [Creating a Case](#51-creating-a-case)
-   - 5.2 [Managing Cases](#52-managing-cases)
-   - 5.3 [Linking Alerts to Cases](#53-linking-alerts-to-cases)
-6. [Suppressions](#6-suppressions)
-   - 6.1 [How Suppression Works](#61-how-suppression-works)
-   - 6.2 [Creating a Suppression Rule](#62-creating-a-suppression-rule)
-   - 6.3 [Managing Rules](#63-managing-rules)
-   - 6.4 [Suppression Strategy](#64-suppression-strategy)
-7. [Metrics](#7-metrics)
-   - 7.1 [KPI Cards](#71-kpi-cards)
-   - 7.2 [Hourly Volume Sparkline](#72-hourly-volume-sparkline)
-   - 7.3 [Top Agents](#73-top-agents)
-   - 7.4 [Noisy Rules Table](#74-noisy-rules-table)
-   - 7.5 [MITRE ATT&CK Coverage](#75-mitre-attck-coverage)
-   - 7.6 [Detection Rule Library](#76-detection-rule-library)
-8. [Analyst Workflow Guide](#8-analyst-workflow-guide)
-   - 8.1 [Starting a Shift](#81-starting-a-shift)
-   - 8.2 [Triaging the Queue](#82-triaging-the-queue)
-   - 8.3 [Investigating an Alert](#83-investigating-an-alert)
-   - 8.4 [Escalating to an Incident](#84-escalating-to-an-incident)
-   - 8.5 [Tuning Noisy Rules](#85-tuning-noisy-rules)
-   - 8.6 [Ending a Shift](#86-ending-a-shift)
-9. [Notifications](#9-notifications)
-10. [API Reference](#10-api-reference)
+**Without SOCops:**
+1. You log into Wazuh
+2. You see 500+ alerts
+3. You read each one individually
+4. You manually copy details to notepad
+5. You mark it as "done" somehow
+6. Repeat 500 times
+
+**With SOCops:**
+1. You open SOCops in your browser
+2. You see alerts ranked by severity
+3. You click one to read it
+4. AI explains what it means
+5. You click "Acknowledge" or "Escalate"
+6. You move to the next one
+
+SOCops does the boring parts so you can focus on the important ones.
 
 ---
 
-## 1. Overview
+## Getting Started (First 5 Minutes)
 
-SOCops is a lightweight, self-hosted Security Operations Center workbench built on top of Wazuh. It replaces the Wazuh UI for day-to-day analyst operations with a purpose-built alert queue, AI-assisted investigation, case management, suppression rules, and SOC performance metrics.
+### Open SOCops
 
-**What SOCops does:**
-- Pulls alerts from Wazuh every 60 seconds and stores them locally in SQLite
-- Provides an analyst-focused queue UI for triaging, acknowledging, escalating, and marking false positives
-- Runs AI analysis on each alert using Claude Haiku (falls back to rule-based analysis if no API key)
-- Enriches source IPs against AbuseIPDB and AlienVault OTX threat intel feeds
-- Lets you group related alerts into named incident cases
-- Lets you suppress recurring noise with point-and-click rules
-- Tracks SOC KPIs: MTTR, FP rate, alert volume, backlog age
-- Sends high-severity and escalation notifications via webhook or email
-
-**What SOCops does not do:**
-- It does not replace Wazuh for agent management, rule configuration, or raw log search
-- It does not provide real-time streaming — alerts arrive in 60-second batches
-- It does not enforce multi-user auth — it is designed for a single analyst or a small trusted team on a private network
-
----
-
-## 2. Navigation
-
-The top navigation bar is present on every page:
-
+In your web browser, go to:
 ```
-[S] SOCops   Queue  Dashboard  Cases  Suppressions  Metrics       CSV  JSON
+http://your-server.com:8081
 ```
 
-| Link | Page | Purpose |
-|---|---|---|
-| **Queue** | `/` | Alert triage — your primary workspace |
-| **Dashboard** | `/dashboard` | Wazuh health and trend charts |
-| **Cases** | `/cases` | Incident containers grouping related alerts |
-| **Suppressions** | `/suppressions` | Rules to auto-suppress recurring noise |
-| **Metrics** | `/metrics` | SOC KPIs, MITRE coverage, noisy rules |
+Or ask your administrator for the correct URL.
 
-The header also shows three live counters: **new alerts**, **escalated**, and **acknowledged**, updating every 60 seconds.
+### You Should See This
 
-The **CSV** and **JSON** buttons in the top-right export the current queue view.
+A dark screen with:
+- **Top navigation:** Queue | Dashboard | Cases | Suppressions | Metrics
+- **Left side:** List of alerts
+- **Right side:** Empty (click an alert to see details)
+- **Bottom:** Action buttons
+
+### Read the Red Numbers
+
+In the top-right of the header, you see three numbers in colored pills:
+
+- **Red pill (number)** — how many NEW alerts need your attention
+- **Orange pill (number)** — how many you ESCALATED (serious incidents)
+- **Blue pill (number)** — how many you already ACKNOWLEDGED (reviewed and understood)
+
+These update every 60 seconds as new alerts come in.
 
 ---
 
-## 3. Alert Queue
+## Part 1: Understanding Alerts (The Queue)
 
-The queue at `/` is your primary workspace. It fills the full browser viewport with a split pane: the alert list on the left, and the investigation detail panel on the right.
+### What Is an Alert?
 
-### 3.1 Understanding the Layout
+An alert is a **security event that happened on your network**. Examples:
+- "Someone tried to log in 10 times with the wrong password"
+- "A file on this server was modified in the middle of the night"
+- "This IP address is known to be malicious"
 
+Each alert has:
+- **Rule description** — what it detected
+- **Agent/computer** — where it happened
+- **Severity** — how important it is (1-15, where 15 = CRITICAL)
+- **Timestamp** — when it happened
+
+### Severity Levels Explained
+
+Each alert has a color badge with a number inside. Here's what they mean:
+
+| Color | Number | Name | What It Means |
+|-------|--------|------|--------------|
+| 🔴 Red | 12-15 | CRITICAL | **DO THIS NOW** — stop what you're doing and investigate |
+| 🟠 Orange | 10-11 | HIGH | **Check this in the next hour** — probably a real problem |
+| 🟡 Yellow | 7-9 | MEDIUM | **Check this today** — worth investigating but not urgent |
+| 🟢 Green | 1-6 | LOW | **Check at the end of your shift** — probably harmless |
+
+**Real-world examples:**
+
+| Alert | Severity | Why |
+|-------|----------|-----|
+| "Ransomware detected on server" | 🔴 15 | This is an active attack |
+| "Failed login 10 times in 1 minute" | 🔴 14 | Brute force attack |
+| "Unusual network port opened" | 🟠 11 | Suspicious but could be legitimate |
+| "File modified in temp folder" | 🟡 8 | Needs checking but probably benign |
+| "Service restarted normally" | 🟢 3 | Expected behavior |
+
+---
+
+## Part 2: Your First 30 Minutes
+
+### Step 1: Look at the Queue
+
+The left side shows a list of alerts. Each alert shows:
+- **Severity badge** (colored square with number)
+- **Rule description** (what it detected)
+- **Agent name** (which computer, like "server-01")
+- **Timestamp** (when it happened)
+
+Alerts are sorted by **highest severity first**. The red ones are at the top.
+
+### Step 2: Click on a Red Alert
+
+Click any alert. The right side panel opens with full details:
+
+**Header section shows:**
+- Rule name
+- Agent name (click it to see timeline)
+- Source IP (click it to see if it's bad)
+- MITRE ATT&CK tags (what attack technique this is)
+
+**Analysis section shows:**
+- **What happened:** Plain English summary
+- **Severity context:** Why this matters
+- **Remediation steps:** Numbered steps for what to do
+
+**Event details section shows:**
+- Raw technical data (file path, user, command, etc.)
+
+**Notes section shows:**
+- Any comments previous analysts added
+- Auto-generated "status changed" entries
+
+### Step 3: Make a Decision
+
+At the bottom of the alert, you have action buttons. Pick one:
+
+| Button | Meaning | When to Use | Example |
+|--------|---------|------------|---------|
+| **✓ Ack** | Acknowledge — "I reviewed it, it's fine" | Alert is not a problem | "This FIM event is expected, I acknowledge" |
+| **↑ Escalate** | "This needs more investigation" | Alert is suspicious or concerning | "Lateral movement detected, escalating" |
+| **✗ FP** | False Positive — "This is a mistake" | Alert should not have fired | "VPN client flagged as trojan, but it's legit" |
+| **⊘ Suppress** | "Stop showing me this alert forever" | Alert is noise (fires constantly, never matters) | "Systemd service restarting is normal" |
+
+**Pro tip:** Don't spend more than 30 seconds per alert. If you can't decide, click **Escalate** and come back to it.
+
+### Step 4: Read the Analysis
+
+SOCops includes **AI-generated analysis** for each alert. This explains:
+- What the alert detected
+- Why it matters
+- What steps to take
+
+**Example analysis:**
 ```
-┌─────────────────────────────────────────────────────────────────────┐
-│ Header: logo | nav | stat pills (new / escalated / ack) | poll time │
-├────────────────────────┬────────────────────────────────────────────┤
-│ STATUS FILTERS         │                                            │
-│ All New Escalated Ack FP│         DETAIL PANEL                      │
-├────────────────────────┤  (select an alert to investigate)         │
-│ CATEGORY FILTERS       │                                            │
-│ All Systemd Integrity  │                                            │
-│ CIS Web Windows        │                                            │
-├──── search ────────────│                                            │
-│ ALERT LIST             │                                            │
-│ [lvl] Rule description │                                            │
-│       Agent · time     │                                            │
-│       [MITRE tag]      │                                            │
-│ ...                    │                                            │
-├────────────────────────┴────────────────────────────────────────────┤
-│ ACTION BAR: ✓ Acknowledge  ↑ Escalate  ✗ False Positive  ⊘ Suppress│
-│             + Case    Assign: [______]  Note: [__________] Add Note │
-└─────────────────────────────────────────────────────────────────────┘
-```
-
-The action bar at the bottom becomes active as soon as you click any alert. You do not need to wait for the detail to load before acting.
-
-### 3.2 Alert Severity Levels
-
-Each alert carries a Wazuh rule level from 1–15. SOCops maps these to four severity tiers:
-
-| Badge color | Level range | Label | Meaning |
-|---|---|---|---|
-| Red | 12–15 | CRITICAL | Immediate investigation required |
-| Orange | 10–11 | HIGH | Investigate within 1 hour |
-| Yellow | 7–9 | MEDIUM | Investigate within 4 hours |
-| Green | 1–6 | LOW | Review at end of shift |
-
-The numeric level is shown inside the badge on each alert card.
-
-### 3.3 Status Filters
-
-The status filter row selects which workflow state to show:
-
-| Button | What it shows |
-|---|---|
-| **All** | Every alert regardless of status |
-| **New** | Unreviewed alerts — your primary triage view |
-| **Escalated** | Alerts promoted to active investigation |
-| **Ack** | Acknowledged (reviewed, no further action) |
-| **FP** | Marked as false positive |
-
-A red badge on the **New** button and an orange badge on the **Escalated** button show the current count. These update every 60 seconds.
-
-Suppressed alerts are excluded from all views. They are automatically set at ingest when a suppression rule matches.
-
-### 3.4 Category Filters
-
-The category bar below the status filters narrows by alert type. Status and category filters combine — for example, New + CIS shows only unreviewed CIS benchmark alerts.
-
-| Button | What it matches |
-|---|---|
-| **All** | No category filter |
-| **Systemd** | Service failures, unit state changes |
-| **Integrity** | File integrity monitoring (FIM) — file/registry changes, additions, deletions |
-| **CIS** | CIS benchmark compliance checks (SCA scans) |
-| **Web** | Web server access log attacks, 400/500 errors |
-| **Windows** | Windows application and system event log alerts |
-
-### 3.5 Alerts View vs Groups View
-
-The **Alerts / Groups** toggle to the left of the status filter switches between two views of the same data.
-
-**Alerts view** (default): shows individual alert cards sorted by severity then timestamp, newest first within each severity band. This is the standard triage view.
-
-**Groups view**: collapses alerts with the same rule on the same agent into a single group card with a **×N** count badge. Use this to quickly see which rule/agent combinations are generating the most volume before deciding whether to suppress or investigate.
-
-Group cards show: severity of the highest alert in the group, rule description, agent name, total count, and most recent timestamp.
-
-Clicking a group card expands it inline in the detail pane, showing all individual alerts in that group. Clicking any of those alerts opens the full alert detail.
-
-### 3.6 Searching Alerts
-
-The search box in the filter bar performs a live client-side search across the currently loaded alert list. It matches against:
-- Rule description
-- Agent name
-- MITRE technique name
-
-The search applies on top of the active status and category filters. It searches within the current page of 300 alerts. To search across all alerts, use the export API with filters.
-
-### 3.7 Selecting and Investigating an Alert
-
-Click any alert card to load it in the detail panel. The panel shows:
-
-**Header:**
-- Severity badge and rule description
-- Chips: agent name, agent IP, MITRE technique, MITRE tactic, source IP, current status
-- Threat intel risk badge (if srcip is enriched and has a non-zero risk score)
-
-**Analysis & Remediation section:**
-Contains the AI-generated investigation guidance. This includes:
-- What happened (event summary)
-- Severity context (urgency framing)
-- Remediation steps (numbered, actionable)
-
-If the analysis is still processing, a spinner is shown and the panel polls every 4 seconds until complete. If no Anthropic API key is configured, or if the account has no credits, a rule-based analysis is shown instead — still useful but less context-aware.
-
-**Event Details section:**
-Raw fields extracted from the Wazuh event: timestamp, rule ID, rule groups, FIM path and event type, source/target user, command, URL, full log line. Not all fields appear for every alert type.
-
-**Notes section:**
-Chronological thread of analyst notes and auto-generated status change entries. See section 3.11.
-
-### 3.8 Threat Intel Enrichment
-
-When an alert contains a source IP (`srcip`), SOCops automatically queries threat intel in the background:
-
-- **AbuseIPDB**: returns an abuse confidence score (0–100%) and total report count
-- **AlienVault OTX**: returns pulse count (number of threat intel reports referencing this IP) and country
-
-Results are combined into a **risk score** (0–100) and **risk label**:
-
-| Label | Score | Badge color |
-|---|---|---|
-| low | 0–19 | muted |
-| medium | 20–49 | yellow |
-| high | 50–79 | orange |
-| critical | 80–100 | red |
-
-The risk badge appears next to the source IP chip in the alert header: `⚑ HIGH 73`. For scores ≥ 50, the abuse confidence percentage and OTX pulse count are shown inline.
-
-Enrichment happens in a background worker running every 30 seconds at a rate of 1 IP per second. Newly ingested alerts with a srcip will typically be enriched within 1–2 minutes.
-
-To manually trigger an enrichment lookup, use the API: `GET /api/enrich/<ip>`
-
-Enrichment requires API keys configured in the environment (`OTX_KEY`, `ABUSEIPDB_KEY`). If neither is configured, no enrichment badges appear.
-
-### 3.9 AI Analysis
-
-Each alert is analyzed by a background worker that processes unanalyzed alerts continuously, highest severity first.
-
-**With Anthropic API key + credits:** Analysis is generated by Claude Haiku. The model receives the full alert context — rule, agent, MITRE mapping, raw event fields — and returns structured markdown covering what happened, severity framing, and specific remediation steps.
-
-**Without API key or with zero credits:** A rule-based stub generates analysis from MITRE tactic → remediation mappings plus rule group context. Less nuanced but still actionable.
-
-The analysis section in the detail panel renders markdown: headers, bold text, numbered lists, inline code, and emphasis are all formatted.
-
-### 3.10 Taking Action on an Alert
-
-The action bar at the bottom of the screen is active whenever an alert is selected. Actions are applied immediately — the queue and stats update within seconds.
-
-| Button | Action | When to use |
-|---|---|---|
-| **✓ Acknowledge** | Sets status to `ack` | Reviewed, understood, no further action needed |
-| **↑ Escalate** | Sets status to `escalated` | Requires deeper investigation or a case |
-| **✗ False Positive** | Sets status to `fp` | Alert fired on benign activity |
-| **↺ Reopen** | Sets status back to `new` | Reconsider a previously actioned alert (shown only when status ≠ new) |
-
-After taking action, the alert detail reloads showing the updated status. The queue list updates to reflect the new status (acknowledged alerts show at reduced opacity; if the status filter is set to New, they disappear from view).
-
-**Escalating a critical alert** also triggers an outbound notification (if `NOTIFY_WEBHOOK` or `NOTIFY_EMAIL` is configured). High-severity alerts (rule level ≥ `NOTIFY_LEVEL`, default 12) trigger notifications automatically on ingest.
-
-### 3.11 Notes
-
-The notes thread at the bottom of the detail panel is a chronological log of analyst observations and system events for that alert.
-
-**Adding a note:**
-Type in the note input field and click **Add Note**. The note is stored with a UTC timestamp and appears immediately in the thread.
-
-**Auto-generated entries:**
-Every time an alert's status changes (acknowledge, escalate, false positive, reopen), an entry is automatically appended to the notes thread recording what happened and when. These appear in muted italic text to distinguish them from analyst notes. Example: `Status changed to escalated`.
-
-Notes persist across sessions and are included in JSON exports.
-
-### 3.12 Assigning Alerts
-
-The **Assign to:** text field in the action bar lets you record which analyst is working an alert. Type a name or initials and click **Assign**.
-
-Assigned alerts show a small initials badge in the alert list. Use the search box to filter by analyst name if needed.
-
-### 3.13 Entity Timeline
-
-Clicking the **agent name chip** or the **source IP chip** in the alert detail header opens a timeline modal.
-
-The timeline shows all alerts involving that agent or IP from the last 24 hours, sorted chronologically (oldest first). Each event in the timeline shows:
-- Timestamp
-- Severity badge
-- Rule description
-- Status dot
-- MITRE tactic tag (if present)
-
-Clicking any event in the timeline closes the modal and loads that alert's full detail. This is the fastest way to answer "what else has this host done recently?" during an investigation.
-
-### 3.14 Suppressing from an Alert
-
-The **⊘ Suppress** button in the action bar opens a suppression modal pre-filled with the current alert's rule ID and agent name.
-
-Review the pre-filled values, add a reason (required for audit trail), optionally set an expiry date, then click **Create Rule**. New alerts matching this rule will be automatically suppressed at ingest — they will never appear in the queue.
-
-See section 6 for full suppression documentation.
-
-### 3.15 Adding an Alert to a Case
-
-The **+ Case** button opens a case modal showing existing open cases. Select a case from the dropdown and click **Add to Case** to link the alert. If no cases exist, use the Cases page to create one first, then return to the alert.
-
-An alert can belong to multiple cases.
-
-### 3.16 Exporting Alerts
-
-The **CSV** and **JSON** buttons in the top-right header export the current view — applying the active status filter, category filter, and a default 7-day lookback.
-
-**CSV export** (`/api/export/alerts.csv`): Spreadsheet-compatible, includes all alert fields except the raw JSON payload. Suitable for reporting or importing into other tools.
-
-**JSON export** (`/api/export/alerts.json`): Full alert records including enrichment data and notes, suitable for IR handoffs or downstream processing.
-
-Both endpoints accept query parameters for finer control:
-```
-/api/export/alerts.csv?status=escalated&category=web&since=30d
+🔴 Lateral Movement Detected
+
+What happened:
+An attacker has moved from the initial compromised host (192.168.1.10) 
+to another host (192.168.1.50) and attempted to execute commands.
+
+Severity Context:
+This indicates the attacker is exploring your network and escalating 
+the attack from initial access to active exploitation.
+
+Remediation Steps:
+1. Immediately isolate 192.168.1.50 from the network
+2. Check event logs on 192.168.1.10 for credential theft
+3. Reset passwords for affected users
+4. Scan both hosts for backdoors
 ```
 
-Supported `since` values: `24h`, `7d`, `30d`.
+The analysis is written in plain English, not technical jargon (usually).
 
 ---
 
-## 4. Dashboard
+## Part 3: Understanding the Views
 
-The dashboard at `/dashboard` shows Wazuh health and alert trend charts, pulling data from Wazuh's OpenSearch directly every 5 minutes.
+### The Status Filter (Top Left)
 
-**Panels:**
+Four buttons filter which alerts you see:
 
-| Panel | Description |
-|---|---|
-| Active Agents | Count of online / total / disconnected Wazuh agents |
-| Alert Severity Over Time | Bar chart of alert volume by severity band over the last 24 hours |
-| Top Agents | Horizontal bar chart of agents by alert count (last 24h) |
-| MITRE ATT&CK Tactics | Doughnut chart of alert volume by MITRE tactic |
-| CIS Compliance | Gauge charts showing pass / fail / error rates for CIS benchmark checks |
+| Button | Shows | When to Use |
+|--------|-------|------------|
+| **All** | Every alert (including old ones) | Get a complete picture |
+| **New** | Unreviewed alerts | Start your shift here |
+| **Escalated** | Alerts you marked as suspicious | Follow up on serious incidents |
+| **Ack** | Alerts you already reviewed | Verify your work |
+| **FP** | Alerts you marked as false positives | Tune detection rules |
 
-The dashboard reflects Wazuh's live data, not the SOCops queue. It includes alerts that may have been filtered as noise and never entered the SOCops queue. Use it for situational awareness and trend spotting; use the queue for analyst workflow.
+**Common workflow:**
+1. Start with **New** — work through new alerts
+2. Switch to **Escalated** — manage ongoing incidents
+3. At end of shift, check **Escalated** again
 
-Data auto-refreshes every 5 minutes. A "Last updated" timestamp is shown at the top.
+### The Category Filter (Below Status)
 
----
+Further filter by alert type:
 
-## 5. Cases
+| Category | What It Is | Examples |
+|----------|-----------|----------|
+| **Systemd** | Service/system startup events | "Apache started", "Service crashed" |
+| **Integrity** | File/registry changes | "Important file modified", "Permission changed" |
+| **CIS** | Compliance benchmarks | "Password policy not set", "Antivirus disabled" |
+| **Web** | Web server activity | "SQL injection attempt", "Directory traversal" |
+| **Windows** | Windows system events | "Failed login", "Privilege escalation" |
 
-Cases are named incident containers. Use them to group related alerts into a single tracked incident with its own status lifecycle.
+**Tip:** Start with **Web** + **New** (these have highest signal-to-noise), then **CIS**, then **Integrity**, then **Systemd** (usually lowest priority).
 
-Typical use: you notice three alerts from the same agent — a failed login, a privilege escalation, and a file added. You create a case called "Suspected credential attack on SV08", link all three alerts, and track the investigation to closure.
+### Alerts View vs Groups View
 
-### 5.1 Creating a Case
+Two ways to see the same data:
 
-Navigate to **Cases** and fill in the form on the right side of the page:
+**Alerts view** (default):
+- Shows every individual alert
+- Good for detailed work
+- Can show 300 alerts per page
 
-| Field | Description |
-|---|---|
-| **Title** | Short descriptive name for the incident (required) |
-| **Severity** | 1–15 numeric severity, typically matching the highest alert |
-| **Description** | Free-text investigation notes, context, or hypothesis |
+**Groups view**:
+- Combines identical alerts (same rule + same agent)
+- Shows count badge (e.g., "×47" means 47 identical alerts)
+- Good for spotting recurring patterns
+- Faster to scan for "noisy" alerts
 
-Click **Create Case**. The case appears in the list with status `open`.
+**Example:**
+- Alerts view: 47 separate "Failed SSH login" entries
+- Groups view: One card saying "Failed SSH login ×47"
 
-You can also create a case implicitly from the alert action bar by clicking **+ Case** — if no matching case exists, type a new case name in the field provided.
-
-### 5.2 Managing Cases
-
-The case list on the Cases page shows all cases sorted by creation date. Each case shows: title, status, severity badge, creation time, and linked alert count.
-
-Clicking a case opens its detail view with all linked alerts listed. From the detail view you can:
-- Change case status (open → in\_progress → resolved → closed)
-- View all linked alerts and navigate to any of them
-- Add further context in the description
-
-**Case status lifecycle:**
-
-| Status | Meaning |
-|---|---|
-| `open` | Created, not yet actively worked |
-| `in_progress` | Under active investigation |
-| `resolved` | Root cause identified, remediation complete |
-| `closed` | Fully closed, confirmed resolved |
-
-### 5.3 Linking Alerts to Cases
-
-From the alert detail action bar, click **+ Case**, select the target case from the dropdown, and click **Add to Case**. The alert now appears in the case's alert list.
-
-Alerts can belong to multiple cases. Cases can hold any number of alerts. There is no automatic linking — all case membership is analyst-controlled.
+Use Groups to quickly find recurring alerts, then switch back to Alerts to investigate.
 
 ---
 
-## 6. Suppressions
+## Part 4: Detailed Alert Investigation
 
-The Suppressions page at `/suppressions` manages rules that automatically suppress matching alerts at ingest time. Suppressed alerts are stored in the database but never appear in the queue. They have status `suppressed` and do not count towards new/escalated/ack statistics.
+### When You Select an Alert
 
-Use suppressions to eliminate known-benign noise that would otherwise generate constant false positives, obscuring real threats.
+The right panel shows complete information:
 
-### 6.1 How Suppression Works
+**1. Header (Most Important):**
+- Alert title and severity
+- Computer it happened on
+- Source IP (with threat intel risk score)
+- MITRE ATT&CK technique/tactic
 
-Every time the poller fetches a new alert from Wazuh, after storing it, SOCops evaluates all active suppression rules against the alert's fields. If any rule matches, the alert status is immediately set to `suppressed`. The hits counter on that rule is incremented.
+**2. Analysis Section (Read This):**
+This is the AI-generated explanation. It usually answers:
+- What happened?
+- Is it dangerous?
+- What should I do?
 
-Rules are evaluated at ingest — they do not retroactively affect alerts already in the queue. To suppress an existing backlog of known-benign alerts, use bulk-acknowledge instead.
+**3. Event Details:**
+Raw technical fields (log data, user accounts, file paths, etc.)
 
-Suppression rules with an expiry date are automatically skipped once the expiry passes (they remain visible in the list so you can decide whether to renew or delete them).
+**4. Notes Thread:**
+Comments from you or other analysts, plus auto-generated status changes.
 
-### 6.2 Creating a Suppression Rule
+### Threat Intel Risk Badge
 
-Navigate to **Suppressions**. The form on the right has four fields:
+If an alert has a source IP, you see a risk badge:
 
-| Field | Options | Description |
-|---|---|---|
-| **Field** | `rule_id`, `agent_name`, `srcip`, `rule_description` | Which alert attribute to match against |
-| **Operator** | `equals`, `contains`, `starts_with` | How to compare the value |
-| **Value** | text | The value to match (case-sensitive) |
-| **Reason** | text | Why this is being suppressed (audit trail — required) |
-| **Expires** | date (optional) | Auto-expire the rule on this date |
-
-**Examples:**
-
-Suppress all systemd failure alerts from a specific agent:
-- Field: `agent_name`, Operator: `equals`, Value: `SV08`
-- Reason: SV08 is a test server with expected service churn
-
-Suppress a specific noisy rule:
-- Field: `rule_id`, Operator: `equals`, Value: `40704`
-- Reason: Systemd exit alerts confirmed benign across all agents
-
-Suppress a known-benign scanner IP:
-- Field: `srcip`, Operator: `equals`, Value: `192.168.0.50`
-- Reason: Vulnerability scanner — scheduled weekly
-
-Suppress all VirusTotal lookup errors:
-- Field: `rule_description`, Operator: `starts_with`, Value: `VirusTotal:`
-- Reason: VT API rate limits generate constant noise
-
-### 6.3 Managing Rules
-
-The rules table shows all suppression rules with: field, operator, value, reason, hit count, creation date, and expiry.
-
-The **hits** counter shows how many alerts have been auto-suppressed by each rule since it was created. A rule with 0 hits after a few days may indicate a typo in the value or a condition that no longer fires.
-
-To delete a rule, click the **Delete** button on its row. Deletion takes effect immediately — subsequent matching alerts will no longer be suppressed.
-
-### 6.4 Suppression Strategy
-
-Good suppression is one of the highest-leverage activities in a SOC. Guidelines:
-
-**Suppress by rule_id + agent_name together** rather than by rule_id alone when the rule is legitimately noisy only on specific hosts. This avoids suppressing real detections on other hosts that happen to fire the same rule for different reasons.
-
-**Always set an expiry** for suppressions tied to temporary conditions (maintenance windows, test activity, pending patches). Indefinite suppressions accumulate and degrade detection coverage over time.
-
-**Review the hits counter monthly.** Rules with very high hits (thousands per week) are prime candidates for moving from suppress to investigate — high volume on a single rule is sometimes a sign of a persistent, low-and-slow threat.
-
-**Use the Noisy Rules table on Metrics** to identify suppression candidates before creating rules manually. Sort by total count to see what rules are generating the most volume.
-
----
-
-## 7. Metrics
-
-The Metrics page at `/metrics` provides SOC performance visibility — not for monitoring infrastructure (that is the Dashboard's job) but for monitoring the SOC workflow itself.
-
-### 7.1 KPI Cards
-
-Five cards across the top of the page show the most important operational numbers:
-
-| KPI | Description | How it is calculated |
-|---|---|---|
-| **MTTR** | Mean Time To Respond (minutes) | Average time between alert `created_at` and `updated_at` for all resolved alerts (ack, fp, escalated) |
-| **FP Rate** | False positive percentage | `fp_count / (fp + ack + escalated) × 100` |
-| **24h Volume** | Alerts ingested in last 24 hours | COUNT WHERE created_at >= now - 24h |
-| **Backlog Age** | Hours since oldest unreviewed alert | Hours between now and the earliest `new` alert's created_at |
-| **Escalation Rate** | Percentage of closed alerts escalated | `escalated / (fp + ack + escalated) × 100` |
-
-**Interpreting KPIs:**
-
-A rising **Backlog Age** indicates the queue is growing faster than it is being processed — consider adding suppression rules or adjusting shift coverage.
-
-A **FP Rate** consistently above 30–40% suggests the detection ruleset needs tuning — use the Noisy Rules table to identify candidates.
-
-A very low **Escalation Rate** (near 0%) over time may indicate analysts are acknowledging alerts without appropriate investigation. A healthy rate varies by environment but something in the 2–10% range is typical for a well-tuned ruleset.
-
-**MTTR** is most meaningful after the queue has been worked for several days with real acknowledgments and escalations.
-
-### 7.2 Hourly Volume Sparkline
-
-A bar chart showing alert ingestion count by hour over the last 24 hours. Use this to:
-- Identify unexpected spikes that may indicate an incident or a noisy rule firing in bursts
-- Understand your normal alert rhythm (e.g. scheduled scans, backup jobs, maintenance windows)
-- Spot gaps where the poller may have been disconnected
-
-### 7.3 Top Agents
-
-A table of the 5 most active agents by alert count in the last 7 days. Agents generating consistently high volumes are candidates for targeted suppression or ruleset review.
-
-### 7.4 Noisy Rules Table
-
-All detection rules ranked by total alert count, with false positive rate per rule. Rows are color-coded:
-- **Red background**: FP rate > 50% — this rule generates more false positives than true positives, suppress or tune it
-- **Orange background**: FP rate 30–50% — investigate whether this rule needs scoping to specific agents or conditions
-
-Clicking a rule description filters the alert queue to show only alerts from that rule (uses the `/api/alerts?rule_id=` filter).
-
-### 7.5 MITRE ATT&CK Coverage
-
-A grid of all 14 MITRE ATT&CK tactics. Each card shows:
-- Tactic name
-- Alert count in the last 7 days
-- Top technique observed
-
-Cards are **bright** when alerts fired in the last 7 days and **muted grey** when there is no recent coverage. Use this to understand:
-- Which tactics your detection rules currently cover
-- Which parts of the ATT&CK framework have blind spots in your environment
-- Whether adversary activity is shifting across tactics over time
-
-The tactics shown are: Initial Access, Execution, Persistence, Privilege Escalation, Defense Evasion, Credential Access, Discovery, Lateral Movement, Collection, Command & Control, Exfiltration, Impact, Reconnaissance, Resource Development.
-
-### 7.6 Detection Rule Library
-
-A full table of all detection rules that have ever fired in your environment, showing:
-
-| Column | Description |
-|---|---|
-| Rule ID | Wazuh rule identifier |
-| Description | Rule description |
-| Total | Total alerts fired (all time) |
-| Ack | Count acknowledged |
-| FP | Count marked false positive |
-| Escalated | Count escalated |
-| FP Rate | Percentage false positives |
-
-Click any rule row to filter the alert queue to that rule's alerts. Use this table to build a comprehensive picture of which rules are active in your environment and how accurate they are.
-
----
-
-## 8. Analyst Workflow Guide
-
-This section describes recommended workflows for common SOC tasks using SOCops.
-
-### 8.1 Starting a Shift
-
-1. Open SOCops at `http://<server>:8081`.
-2. Check the **header stat pills**: note the current new / escalated / ack counts.
-3. Open **Metrics** and check the **Backlog Age** KPI — if backlog age is > 8 hours, the queue has accumulated overnight and needs prioritised triage.
-4. Check the **Hourly Volume sparkline** for any spikes during the previous shift.
-5. Return to the **Queue**, set status filter to **Escalated** — review any alerts escalated by the previous shift before clearing the new backlog.
-
-### 8.2 Triaging the Queue
-
-Set status filter to **New**. Work top to bottom (the list is sorted by severity descending).
-
-**For each alert:**
-
-1. Read the rule description and severity badge.
-2. Check the agent name and MITRE tactic tag.
-3. If the combination is obviously known-benign (e.g. a systemd service that always restarts): click **✗ False Positive**. Done.
-4. If it requires a brief look: click the alert to load the detail panel. Read the Analysis section. If benign: click **✓ Acknowledge**. If concerning: click **↑ Escalate**.
-5. If it is a recurring pattern you want to eliminate: click **⊘ Suppress** and create a rule.
-
-**Prioritisation shortcuts using category filters:**
-
-- Start with **Web** category + **New** status: these frequently contain active attack attempts and have the highest urgency-to-volume ratio.
-- Then **CIS** + **New**: compliance state changes are time-sensitive.
-- Then **Integrity** + **New**: FIM events on sensitive paths warrant review.
-- Finally **Systemd** + **New**: usually highest volume, lowest signal.
-
-### 8.3 Investigating an Alert
-
-When an alert warrants deeper investigation:
-
-1. **Escalate** it to move it out of the new backlog.
-2. Read the full **Analysis & Remediation** section.
-3. Click the **agent name chip** to open the 24h entity timeline — look for correlated activity.
-4. If there is a source IP, check the **threat intel risk badge** and click the **srcip chip** to see if the IP appears in other alerts.
-5. Add investigation notes as you work: type in the note field and click **Add Note**.
-6. If the alert is part of a multi-alert incident, click **+ Case** to link it to an existing case or create a new one.
-7. If the alert is definitively resolved, **Acknowledge** it. If it is an active incident, leave it as **Escalated** and manage it through the Cases page.
-
-### 8.4 Escalating to an Incident
-
-When multiple related alerts indicate a coordinated or ongoing threat:
-
-1. Navigate to **Cases** and click **Create Case**.
-2. Title the case descriptively: `Suspected lateral movement from 10.0.0.55`, `Ransomware precursor activity on SV08`, etc.
-3. Set severity to match the highest alert involved.
-4. Add a description summarising your current hypothesis and evidence.
-5. Return to the queue and link each relevant alert to the case using the **+ Case** button.
-6. Update the case status to `in_progress`.
-7. Continue adding notes to individual alerts as the investigation progresses.
-8. When the incident is resolved: update the case to `resolved`, acknowledge all linked alerts, and add a final closure note explaining root cause and outcome.
-
-### 8.5 Tuning Noisy Rules
-
-When a rule generates consistent false positives:
-
-1. Navigate to **Metrics** → **Noisy Rules Table**.
-2. Identify rules with high FP rates or high total counts.
-3. Click the rule description to filter the alert queue to that rule.
-4. Review 5–10 examples of the alert. Determine whether:
-   - The rule fires only on specific agents → suppress by `rule_id` + `agent_name`
-   - The rule always fires on benign activity regardless of agent → suppress by `rule_id` alone (use caution)
-   - The rule fires on specific IP ranges → suppress by `srcip`
-5. Navigate to **Suppressions** and create the appropriate rule with a clear reason.
-6. Return to the queue the next day and verify hits are accumulating on the new suppression rule.
-
-### 8.6 Ending a Shift
-
-1. Set status filter to **New** — ensure the new count is at an acceptable level (or hand it off with a note about volume).
-2. Set status filter to **Escalated** — add notes to any open escalations summarising current status so the next analyst can pick up without re-reading everything.
-3. Check **Metrics** → **Backlog Age** — if rising, note it in a handoff.
-4. Export current escalated alerts as CSV for shift handoff documentation: `CSV` button with status filter set to **Escalated**.
-
----
-
-## 9. Notifications
-
-SOCops can send outbound notifications for high-severity alerts and escalations.
-
-**Triggers:**
-- Any newly ingested alert with rule level ≥ `NOTIFY_LEVEL` (default: 12) triggers an automatic notification
-- Any alert manually escalated via the **↑ Escalate** button triggers a notification
-
-**Channels:**
-- **Webhook**: HTTP POST to `NOTIFY_WEBHOOK` URL. Payload is JSON: `{text: "...", alert_id: N}`. Compatible with Slack incoming webhooks, ntfy.sh, and any generic webhook receiver.
-- **Email**: SMTP email sent to `NOTIFY_EMAIL` via the configured SMTP server.
-
-Both channels can be active simultaneously. If neither is configured, notifications are silently skipped.
-
-**Notification message format:**
 ```
-🚨 CRITICAL | Registry Key Integrity Checksum Changed
-Agent: SV08 | Level: 14
-Time: 2026-03-28T09:14:22.000+0100
+⚑ LOW 12
+⚑ MEDIUM 45
+⚑ HIGH 73
+⚑ CRITICAL 95
 ```
 
-The prefix emoji indicates severity: 🚨 CRITICAL (≥12), ⚠️ HIGH (≥10), 📋 ESCALATED (manual).
+This means: "SOCops looked up this IP in threat databases and it has a score of 12-95 out of 100." Higher = more suspicious.
 
-Configure in `.env`:
-```env
-NOTIFY_WEBHOOK=https://hooks.slack.com/services/xxx
-NOTIFY_EMAIL=analyst@company.com
-SMTP_HOST=smtp.company.com
-SMTP_PORT=587
-SMTP_USER=socops@company.com
-SMTP_PASS=password
-NOTIFY_LEVEL=12
+**How to interpret:**
+- **0-19 (LOW):** Probably fine
+- **20-49 (MEDIUM):** Worth noting, but not rare
+- **50-79 (HIGH):** Known to be suspicious
+- **80-100 (CRITICAL):** Very likely malicious
+
+**Pro tip:** High risk doesn't automatically mean you should panic. Sometimes legitimate security tools (vulnerability scanners, penetration testers) show up as "high risk" because they probe networks. Ask your team about any expected high-risk IPs.
+
+### Entity Timeline
+
+Want to see if this computer or IP has had other problems?
+
+**Click the agent name** (computer name) → see all alerts from that computer in the last 24 hours.
+
+**Click the source IP** → see all alerts involving that IP in the last 24 hours.
+
+This timeline shows:
+- When it happened
+- What happened
+- If you acknowledged/escalated it
+
+**Use this to answer:** "Is this computer having ongoing problems or is it just this one alert?"
+
+---
+
+## Part 5: Taking Action
+
+### Acknowledge (✓)
+
+**What it means:** "I reviewed this alert. It's not a problem."
+
+**When to use:**
+- Alert fired on expected/normal activity
+- You investigated and it's benign
+- You've taken action and it's resolved
+
+**Example:**
+- Alert: "SSH login from IP 1.2.3.4"
+- You check: That's the VPN server (expected)
+- Action: Acknowledge
+
+### Escalate (↑)
+
+**What it means:** "This needs deeper investigation or is a real security issue."
+
+**When to use:**
+- You're not sure if it's a problem
+- Investigation requires more time
+- It looks like a real security incident
+- You need to create a case for it
+
+**Example:**
+- Alert: "Lateral movement detected"
+- Action: Escalate (mark for further investigation)
+
+### False Positive (✗)
+
+**What it means:** "This alert should never have fired."
+
+**When to use:**
+- Legitimate activity was incorrectly flagged
+- Alert rule needs tuning
+- You want to track that this rule has false positives
+
+**Example:**
+- Alert: "Trojan detected: c:\antivirus\update.exe"
+- You check: That's your antivirus software, not a trojan
+- Action: Mark False Positive
+
+**Important:** Marking False Positive helps your team improve detection rules over time.
+
+### Suppress (⊘)
+
+**What it means:** "Stop showing me this alert. Ever."
+
+**When to use:**
+- Alert fires constantly
+- You've confirmed it's always harmless
+- It's noise obscuring real threats
+
+**Example:**
+- Alert: "Failed SSH login from 192.168.1.1" (your CI/CD server, happens 100x per day)
+- Action: Create suppression rule → never see it again
+
+**Note:** This requires adding a reason (for audit trail). Be specific: "CI/CD system expected to fail SSH logins during deployments."
+
+---
+
+## Part 6: Adding Notes
+
+Every alert has a notes thread (bottom of panel).
+
+**To add a note:**
+1. Type in the text field at the bottom
+2. Click **Add Note**
+3. Your note appears in the thread with timestamp
+
+**Use notes for:**
+- Recording your investigation steps
+- Noting decisions you made
+- Linking to external tickets (Jira, ServiceNow, etc.)
+- Handoff information for next analyst
+
+**Example notes:**
+```
+Checked Windows event logs on server-01. User "admin" logged in at 3:47 PM 
+from IP 10.0.0.5 (office network). Expected login. —Alice
+
+Confirmed with user. Login attempt was Alice from her office machine. No issue. —Bob
 ```
 
 ---
 
-## 10. API Reference
+## Part 7: Cases (Group Related Alerts)
 
-All endpoints return JSON unless otherwise noted. The base URL is `http://<server>:8081`.
+Sometimes multiple alerts indicate one **incident**. Example:
 
-### Alert Endpoints
+**Scenario:** You get three alerts:
+1. "Failed login 10 times from IP 1.2.3.4"
+2. "Privilege escalation on server-05"
+3. "File accessed that user shouldn't have access to"
 
-| Method | Path | Parameters | Description |
-|---|---|---|---|
-| GET | `/api/alerts` | `status`, `category`, `group_key`, `rule_id`, `since` | List alerts (max 300) |
-| GET | `/api/alerts/<id>` | — | Single alert with analysis, enrichment, raw event |
-| POST | `/api/alerts/<id>/action` | `{action, notes, assigned_to}` | Update alert status/notes/assignment |
-| GET | `/api/alerts/<id>/notes` | — | Alert notes thread |
-| POST | `/api/alerts/<id>/notes` | `{body}` | Add note |
-| GET | `/api/stats` | — | Queue statistics (counts by status) |
-| GET | `/api/groups` | `status`, `category` | Grouped alert view |
+These might be one attack, not three separate events.
 
-**`/api/alerts` parameters:**
+### Creating a Case
 
-| Parameter | Values | Default |
-|---|---|---|
-| `status` | `all`, `new`, `escalated`, `ack`, `fp` | `all` |
-| `category` | `all`, `systemd`, `integrity`, `cis`, `web`, `windows` | `all` |
-| `group_key` | `<agent>::<rule_id>` string | — |
-| `rule_id` | Wazuh rule ID | — |
-| `since` | `24h`, `7d`, `30d` | — |
+**Go to Cases page → Create Case button:**
 
-**`/api/alerts/<id>/action` body:**
+| Field | What to Put |
+|-------|------------|
+| **Title** | Short description of incident (e.g., "Suspected credential attack on server-05") |
+| **Severity** | 1-15, usually same as highest alert severity |
+| **Description** | Your initial hypothesis and notes |
 
-| Field | Values | Description |
-|---|---|---|
-| `action` | `ack`, `escalate`, `fp`, `new` | New status (optional if only updating notes) |
-| `notes` | string | Replace operator notes (optional) |
-| `assigned_to` | string | Analyst name (optional) |
+**Example:**
+```
+Title: Suspected credential attack on server-05
+Severity: 14 (HIGH)
+Description: Multiple failed login attempts from external IP 1.2.3.4 followed by 
+successful privilege escalation. Attacker may have obtained credentials. 
+Checking Windows logs for lateral movement.
+```
 
-### Case Endpoints
+### Linking Alerts to Cases
 
-| Method | Path | Description |
-|---|---|---|
-| GET | `/api/cases` | List all cases with alert counts |
-| POST | `/api/cases` | Create case: `{title, severity, description}` |
-| GET | `/api/cases/<id>` | Case detail + linked alerts |
-| POST | `/api/cases/<id>/alerts` | Link alert: `{alert_id}` |
-| POST | `/api/cases/<id>/action` | Update status: `{status}` |
+Once you've created a case, go to each alert and click **+ Case** → select your case.
 
-### Suppression Endpoints
+The alert is now part of the case. You can see it on the Cases page.
 
-| Method | Path | Description |
-|---|---|---|
-| GET | `/api/suppressions` | List all suppression rules |
-| POST | `/api/suppressions` | Create rule: `{field, operator, value, reason, expires_at}` |
-| DELETE | `/api/suppressions/<id>` | Delete rule |
+### Managing Cases
 
-### Analytics Endpoints
+On the Cases page, you see all your incidents:
 
-| Method | Path | Description |
-|---|---|---|
-| GET | `/api/kpis` | MTTR, FP rate, volume, top agents, top rules, hourly data |
-| GET | `/api/mitre` | MITRE tactic coverage (last 7d) |
-| GET | `/api/rules` | Detection rule stats (all rules) |
-| GET | `/api/timeline` | Entity timeline: `?agent=<name>` or `?ip=<ip>&hours=24` |
-| GET | `/api/enrich/<ip>` | On-demand IP threat intel lookup |
-| GET | `/api/data` | Dashboard chart data (Wazuh, 5-min cache) |
+| Status | Meaning | When to Update |
+|--------|---------|----------------|
+| **open** | Just created | On creation |
+| **in_progress** | Actively working | Once you start investigating |
+| **resolved** | Issue is fixed | Once you've fixed the problem |
+| **closed** | Fully closed, confirmed safe | Once you've verified no ongoing impact |
 
-### Export Endpoints
+**Typical lifecycle:**
+1. Open → (detect incident)
+2. In progress → (investigate)
+3. Resolved → (fix the problem)
+4. Closed → (verify it's actually fixed)
 
-| Method | Path | Parameters | Description |
-|---|---|---|---|
-| GET | `/api/export/alerts.csv` | `status`, `category`, `since` | CSV export |
-| GET | `/api/export/alerts.json` | `status`, `category`, `since` | JSON export |
+---
 
-**Export examples:**
+## Part 8: Suppressions (Mute Noise)
 
-```bash
-# All escalated alerts from the last 30 days as CSV
-curl "http://server:8081/api/export/alerts.csv?status=escalated&since=30d" -o escalated.csv
+Some alerts repeat constantly but are harmless:
+- "Service restarted" (normal on a test server)
+- "Failed SSH login" (CI/CD system expected to fail)
+- "VPN traffic detected" (employees using VPN is expected)
 
-# All web alerts from the last 24 hours as JSON
-curl "http://server:8081/api/export/alerts.json?category=web&since=24h" -o web_alerts.json
+Instead of acknowledging these 100 times per day, you can **suppress** them.
+
+### How Suppression Works
+
+**Without suppression:**
+- Alert fires 100 times per day
+- You acknowledge 100 times per day
+- Wastes your time
+
+**With suppression:**
+- Alert fires 100 times per day
+- Never appears in your queue
+- Stored in database but marked "suppressed"
+
+### Creating a Suppression Rule
+
+Go to **Suppressions page** → **Create Rule:**
+
+| Field | Example | What It Means |
+|-------|---------|--------------|
+| **Field** | `agent_name` | Which part of the alert to match against |
+| **Operator** | `equals` | How strict to match (equals, contains, starts_with) |
+| **Value** | `test-server-01` | What to match |
+| **Reason** | "Test server expected to restart services constantly" | Why (audit trail) |
+| **Expires** | 2026-06-30 | Optional: auto-remove on this date |
+
+**Common examples:**
+
+**Example 1: Suppress one noisy server**
+- Field: agent_name
+- Operator: equals
+- Value: build-server-01
+- Reason: "Build server performs expected automated restarts"
+
+**Example 2: Suppress a specific rule**
+- Field: rule_id
+- Operator: equals
+- Value: 40704
+- Reason: "Systemd exit code 0 is normal"
+
+**Example 3: Suppress a known-benign IP**
+- Field: srcip
+- Operator: equals
+- Value: 192.168.0.50
+- Reason: "Internal vulnerability scanner — scheduled weekly"
+
+### Managing Rules
+
+On the Suppressions page:
+
+| Column | What It Tells You |
+|--------|-----------------|
+| **hits** | How many alerts this rule has suppressed. If it's 0 after 3 days, maybe you have a typo |
+| **expires** | When rule auto-deletes (if you set an expiry) |
+
+**Pro tip:** Always set an expiry date for suppressions. After a few months, revisit and decide if you still need it.
+
+---
+
+## Part 9: Dashboard & Metrics
+
+### Dashboard
+
+Shows charts of Wazuh data (updated every 5 minutes):
+
+| Chart | What It Shows |
+|-------|--------------|
+| **Active Agents** | How many computers are connected to Wazuh |
+| **Alert Volume Over Time** | How many alerts per hour (spot spikes) |
+| **Top Agents** | Which computers generate most alerts |
+| **MITRE Coverage** | What attack techniques you're detecting |
+| **CIS Compliance** | Compliance benchmark status |
+
+**Use this for:** Getting a bird's-eye view of your security posture. "Are there any unexpected spikes? Is an agent down? Are we covering the right attack techniques?"
+
+### Metrics
+
+Shows how your **SOC team** is performing (not infrastructure):
+
+| KPI | What It Means | Why It Matters |
+|-----|--------------|----------------|
+| **MTTR** | Average time to respond to alerts (minutes) | Lower is better. Shows how fast your team works. |
+| **FP Rate** | Percentage of false positives | Lower is better. Shows if detection rules are accurate. |
+| **24h Volume** | Alerts ingested today | Trending up? Might be an incident or new noise. |
+| **Backlog Age** | Hours since oldest unreviewed alert | If > 8 hours, queue is building up. |
+| **Escalation Rate** | % of alerts marked "escalate" | Should be 2-10%. If 0%, alerts aren't serious enough. |
+
+**Example interpretation:**
+```
+MTTR: 45 minutes
+FP Rate: 25%
+24h Volume: 342 alerts
+Backlog Age: 2 hours
+Escalation Rate: 5%
+
+Translation: We're responding to alerts in 45 minutes on average. 
+25% are false alarms (room for tuning). Normal volume today. 
+No backlog building up. 5% escalation rate is healthy.
+```
+
+### Noisy Rules Table
+
+Shows which detection rules generate the most alerts and how many are false positives.
+
+**Use this to:** Identify which rules should be suppressed, tuned, or investigated.
+
+**Example:**
+```
+Rule: "VirusTotal: Error loading API"
+Count: 2,341 (last 7 days)
+FP Rate: 95%
+
+Translation: This rule fired 2,341 times and 95% were false positives. 
+This should be suppressed immediately.
 ```
 
 ---
 
-*SOCops is built on Wazuh, Claude (Anthropic), AlienVault OTX, and AbuseIPDB.*
+## Part 10: Daily Workflow
+
+### Start of Shift
+
+1. **Open SOCops** at `http://your-server:8081`
+2. **Check header counts:**
+   - How many NEW alerts?
+   - How many ESCALATED (ongoing incidents)?
+3. **Check Metrics page:**
+   - Is backlog age building up?
+   - Any unusual trends in the sparkline chart?
+
+### Triage the Queue
+
+1. **Set status filter to NEW**
+2. **Sort by priority:**
+   - First: Web alerts (usually highest signal-to-noise)
+   - Second: CIS/compliance alerts
+   - Third: Integrity/FIM alerts
+   - Last: Systemd/noise alerts
+3. **For each alert:**
+   - Spend 10 seconds reading rule description
+   - Click to see AI analysis
+   - Acknowledge or Escalate
+4. **If you see recurring patterns:**
+   - Create a suppression rule
+   - Cuts future triage time dramatically
+
+### Investigate Escalated Alerts
+
+1. **Set status filter to ESCALATED**
+2. **For each alert:**
+   - Read previous analyst notes
+   - Update notes with new findings
+   - If resolved, acknowledge it
+
+### End of Shift
+
+1. **Export current state for handoff:**
+   - CSV button (top-right) → Escalated alerts → save
+2. **Add handoff notes:**
+   - Check if backlog is building
+   - Note any ongoing incidents
+   - Suggest priority items for next shift
+
+---
+
+## Part 11: Common Scenarios
+
+### Scenario 1: Multiple Failed Logins
+
+**Alert:** "Failed SSH login 10 times in 1 minute"
+
+**Your investigation:**
+1. Click the source IP → see timeline
+2. Is this IP in geolocation? (click IP to see enrichment)
+3. Is this a known service (IP in threat intel)?
+
+**Decision:**
+- **If IP is from office:** Acknowledge (employee probably typed wrong password)
+- **If IP is external + high threat score:** Escalate (potential brute force attack)
+- **If it's happening daily + always from same IP + always fails:** Create suppression rule (expected service behavior)
+
+### Scenario 2: File Modified in Important Folder
+
+**Alert:** "File integrity check — /etc/shadow modified"
+
+**Your investigation:**
+1. When did it change? Click timestamp.
+2. Who changed it? Check user field.
+3. Is the user supposed to be able to change this file?
+4. Was this a scheduled backup/update?
+
+**Decision:**
+- **If it's the root user running scheduled updates:** Acknowledge
+- **If it's a regular user or unexpected time:** Escalate immediately and create case
+- **If it's a CI/CD system expected to modify files:** Suppress
+
+### Scenario 3: Lateral Movement Alert
+
+**Alert:** "Lateral movement detected: 10.0.0.55 → 10.0.0.60"
+
+**Your investigation:**
+1. Click 10.0.0.55 → see all alerts from that computer
+2. Are there previous compromise indicators?
+3. Escalate immediately
+4. Create a case
+5. Notify your manager
+
+**Decision:** Always escalate this. Contact security team. This is a real attack in progress.
+
+---
+
+## Part 12: Tips & Tricks
+
+### Time-Saving Shortcuts
+
+1. **Bulk actions:** Filter to "New" + "Systemd" → if you recognize them all as benign, use Groups view and acknowledge 10 at a time
+2. **Copy notes:** Use browser copy-paste to share alert details with team chat
+3. **Entity timeline:** Click agent name → instantly see if this computer has other problems
+4. **Search:** Use the search box (top-left) to find alerts about a specific word
+
+### Keyboard Navigation
+
+- **Arrow keys:** Navigate between alerts
+- **Enter:** Open selected alert
+- **A:** Acknowledge
+- **E:** Escalate
+- **F:** False Positive
+- **S:** Suppress
+
+(These may not be enabled — check with your administrator.)
+
+### Exporting Data
+
+**CSV export (top-right button):**
+- Spreadsheet format
+- Good for: reports, team sharing, historical analysis
+- Includes: all fields except raw JSON payload
+
+**JSON export:**
+- Machine-readable format
+- Good for: integration with other tools, IR handoffs
+- Includes: everything (full event data)
+
+### Reporting to Management
+
+Use Metrics page:
+
+```
+Weekly SOC Report
+═══════════════════
+MTTR:              43 minutes (target: 60 minutes)  ✓
+FP Rate:           22% (target: <30%)               ✓
+24h Volume:        287 alerts (normal)
+Escalation Rate:   4% (healthy)
+Backlog Age:       1.5 hours (healthy)
+
+Noisy Rules for Tuning:
+- VirusTotal API timeouts (1,247 alerts, 98% FP)
+- SSH login failures on build server (302 alerts, 100% FP)
+
+Action Items:
+- Suppress VirusTotal API timeout rule
+- Escalate build server SSH config review to DevOps
+```
+
+---
+
+## Part 13: Getting Help
+
+### If Something Doesn't Make Sense
+
+1. **Check the Analysis section** — SOCops explains what the alert means
+2. **Click the source IP** — see if it's a known-bad IP
+3. **Use entity timeline** — see if the computer has other problems
+4. **Add a note** — ask a colleague in the notes thread
+
+### If the UI is Confusing
+
+1. **Hover over buttons** — most have tooltips
+2. **Try the API docs** — `/api/docs/user-manual`
+3. **Ask your administrator** — they may have trained you on your specific setup
+
+### If You Think You Found a Security Issue
+
+1. **Create a case immediately**
+2. **Escalate all related alerts**
+3. **Add detailed notes**
+4. **Alert your manager/security lead**
+5. **Don't wait for approval — escalate first**
+
+---
+
+**That's it. You now know how to use SOCops like a professional security analyst.**
+
+Questions? The Analysis section on each alert usually explains what to do. When in doubt, escalate and let your team decide together.
+
+Good luck catching the bad guys. 🛡️

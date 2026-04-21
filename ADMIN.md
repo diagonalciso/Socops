@@ -1,197 +1,156 @@
 # SOCops Administration Manual
 
-**Platform:** Ubuntu 24.04 LTS · **Runtime:** Python 3.12 · **Port:** 8081
+**This manual teaches administrators how to install, run, maintain, and troubleshoot SOCops.**
+
+Think of SOCops as a traffic controller in your security center. Your Wazuh system is like a giant alarm bell ringing constantly with security events. SOCops catches those alarms, writes them down, and gives your security team a friendly tool to sort through them and decide what matters.
+
+**Before you start:** You need a working Wazuh system with OpenSearch Dashboards running. SOCops cannot replace Wazuh or work without it — it only makes Wazuh easier to use.
 
 ---
 
-## Table of Contents
+## What You're About to Do
 
-1. [System Requirements](#1-system-requirements)
-2. [Installation](#2-installation)
-   - 2.1 [Dependencies](#21-dependencies)
-   - 2.2 [File Layout](#22-file-layout)
-   - 2.3 [Initial Configuration](#23-initial-configuration)
-   - 2.4 [First Run](#24-first-run)
-3. [Running SOCops](#3-running-socops)
-   - 3.1 [Direct (foreground)](#31-direct-foreground)
-   - 3.2 [Background with nohup](#32-background-with-nohup)
-   - 3.3 [systemd Service (recommended)](#33-systemd-service-recommended)
-   - 3.4 [Verifying the Process](#34-verifying-the-process)
-4. [Configuration Reference](#4-configuration-reference)
-   - 4.1 [Required Variables](#41-required-variables)
-   - 4.2 [App Behaviour Variables](#42-app-behaviour-variables)
-   - 4.3 [AI Analysis Variables](#43-ai-analysis-variables)
-   - 4.4 [Threat Intel Variables](#44-threat-intel-variables)
-   - 4.5 [Notification Variables](#45-notification-variables)
-5. [Architecture and Process Model](#5-architecture-and-process-model)
-   - 5.1 [Threads](#51-threads)
-   - 5.2 [Wazuh Connection](#52-wazuh-connection)
-   - 5.3 [Data Flow](#53-data-flow)
-6. [Database Administration](#6-database-administration)
-   - 6.1 [Schema Overview](#61-schema-overview)
-   - 6.2 [Location and Size](#62-location-and-size)
-   - 6.3 [Backup](#63-backup)
-   - 6.4 [Restore](#64-restore)
-   - 6.5 [Pruning Old Alerts](#65-pruning-old-alerts)
-   - 6.6 [Schema Migration](#66-schema-migration)
-   - 6.7 [Inspecting the Database](#67-inspecting-the-database)
-7. [Wazuh Integration](#7-wazuh-integration)
-   - 7.1 [Required Wazuh Account](#71-required-wazuh-account)
-   - 7.2 [SSL / Certificate Handling](#72-ssl--certificate-handling)
-   - 7.3 [Noise Filtering](#73-noise-filtering)
-   - 7.4 [Poll Window and Backfill](#74-poll-window-and-backfill)
-   - 7.5 [Alert Fetch Limit](#75-alert-fetch-limit)
-8. [Threat Intel Enrichment](#8-threat-intel-enrichment)
-   - 8.1 [AbuseIPDB](#81-abuseipdb)
-   - 8.2 [AlienVault OTX](#82-alienvault-otx)
-   - 8.3 [Rate Limits](#83-rate-limits)
-   - 8.4 [Disabling Enrichment](#84-disabling-enrichment)
-9. [AI Analysis](#9-ai-analysis)
-   - 9.1 [Claude Haiku Integration](#91-claude-haiku-integration)
-   - 9.2 [Fallback Stub Analysis](#92-fallback-stub-analysis)
-   - 9.3 [Token Usage and Cost](#93-token-usage-and-cost)
-   - 9.4 [Model Selection](#94-model-selection)
-10. [Notification Setup](#10-notification-setup)
-    - 10.1 [Webhook](#101-webhook)
-    - 10.2 [Email via SMTP](#102-email-via-smtp)
-    - 10.3 [Testing Notifications](#103-testing-notifications)
-11. [Telegram Bot](#11-telegram-bot)
-    - 11.1 [Setup](#111-setup)
-    - 11.2 [Running as a Service](#112-running-as-a-service)
-    - 11.3 [Securing the Bot](#113-securing-the-bot)
-12. [Logs and Monitoring](#12-logs-and-monitoring)
-    - 12.1 [Log Output](#121-log-output)
-    - 12.2 [Monitoring with systemd](#122-monitoring-with-systemd)
-    - 12.3 [Health Check Endpoint](#123-health-check-endpoint)
-    - 12.4 [Thread Health](#124-thread-health)
-13. [Security Hardening](#13-security-hardening)
-    - 13.1 [Network Access](#131-network-access)
-    - 13.2 [Credential Storage](#132-credential-storage)
-    - 13.3 [Wazuh Monitor Account](#133-wazuh-monitor-account)
-    - 13.4 [Reverse Proxy with HTTPS](#134-reverse-proxy-with-https)
-    - 13.5 [File Permissions](#135-file-permissions)
-14. [Maintenance Tasks](#14-maintenance-tasks)
-    - 14.1 [Updating SOCops](#141-updating-socops)
-    - 14.2 [Updating Python Dependencies](#142-updating-python-dependencies)
-    - 14.3 [Rotating API Keys](#143-rotating-api-keys)
-    - 14.4 [Reviewing Suppression Rules](#144-reviewing-suppression-rules)
-    - 14.5 [Database Maintenance](#145-database-maintenance)
-15. [Troubleshooting](#15-troubleshooting)
-    - 15.1 [App Won't Start](#151-app-wont-start)
-    - 15.2 [No Alerts Appearing](#152-no-alerts-appearing)
-    - 15.3 [Wazuh Connection Errors](#153-wazuh-connection-errors)
-    - 15.4 [AI Analysis Not Running](#154-ai-analysis-not-running)
-    - 15.5 [Enrichment Not Working](#155-enrichment-not-working)
-    - 15.6 [Notifications Not Sending](#156-notifications-not-sending)
-    - 15.7 [UI Issues](#157-ui-issues)
-    - 15.8 [Database Errors](#158-database-errors)
-    - 15.9 [High Memory or CPU](#159-high-memory-or-cpu)
-16. [Disaster Recovery](#16-disaster-recovery)
+By the end of this guide, you will have:
+1. ✅ Installed SOCops on a Linux server
+2. ✅ Connected it to your Wazuh system
+3. ✅ Configured it to run automatically (systemd)
+4. ✅ Set up notifications and AI analysis (optional)
+5. ✅ Learned how to troubleshoot when things break
+
+**Time required:** 30 minutes for basic setup. Another 30 minutes if you want AI analysis and email notifications.
 
 ---
 
-## 1. System Requirements
+## Part 1: System Requirements
 
-**Minimum:**
-- CPU: 1 core
-- RAM: 256 MB
-- Disk: 1 GB (database grows ~3 MB per 1,000 alerts with full_json stored)
-- OS: Any Linux with Python 3.10+
-- Network: HTTP/HTTPS access to Wazuh/OpenSearch host on port 443
+### What Hardware Do You Need?
 
-**Tested on:**
-- Ubuntu 24.04 LTS, Python 3.12.3
-- Wazuh 4.x with OpenSearch Dashboards
+**Absolute minimum** (for small teams, <100 alerts/day):
+- **CPU:** 1 core (even an old laptop CPU is fine)
+- **RAM:** 256 MB (seriously — Python uses very little memory)
+- **Disk:** 1 GB free (the database starts at ~1 MB and grows slowly)
+- **Network:** Internet access to your Wazuh server on port 443
 
-**External services (all optional):**
-- Anthropic API — Claude Haiku for AI alert analysis
-- AlienVault OTX — IP threat intel
-- AbuseIPDB — IP abuse reputation
-- SMTP server — email notifications
-- Telegram Bot API — phone interface
+**Recommended** (for production, 500+ alerts/day):
+- **CPU:** 2 cores
+- **RAM:** 512 MB – 1 GB
+- **Disk:** 10 GB free (database grows about 3 MB per 1,000 alerts)
+- **Network:** Direct network connection to Wazuh (same datacenter preferred)
 
-**Python packages required:**
-```
-anthropic>=0.80.0     # AI analysis
-pyTelegramBotAPI      # Telegram bot (telebot/ directory only)
+SOCops is famously lightweight. It runs happily on virtual machines, Raspberry Pis, and old office computers. The only heavy lifting is done by Wazuh — SOCops just reads its data.
+
+### What Software Is Required?
+
+**Operating System:**
+- Ubuntu 22.04 or later (what we tested)
+- CentOS/Rocky Linux 8+
+- Any Linux with Python 3.10 or newer
+
+Check your Python version:
+```bash
+python3 --version
 ```
 
-All other dependencies (sqlite3, http.server, threading, json, csv, ssl, smtplib, urllib) are Python standard library — no additional packages needed for core functionality.
+Should show `Python 3.10.x` or higher.
 
----
-
-## 2. Installation
-
-### 2.1 Dependencies
-
-Install required Python packages system-wide:
+**Python Packages:**
+Most Python packages come built-in with your OS. You only need to install **two** optional packages if you want AI analysis and phone notifications:
 
 ```bash
 pip3 install anthropic pyTelegramBotAPI --break-system-packages
 ```
 
-On Ubuntu 24.04 the `--break-system-packages` flag is required due to PEP 668 externally-managed-environment enforcement. The risk is minimal for these packages as they have no conflicting system dependencies.
+**What does `--break-system-packages` mean?**
+On newer Ubuntu versions, Python tries to protect system packages. This flag tells Python "I know what I'm doing, let me install anyway." It's safe for these packages — they don't conflict with anything.
 
-Alternatively, use a virtual environment:
+**What if you don't have sudo?**
+If you can't run `pip3 install`, that's okay. SOCops still works without these packages — you just won't have AI analysis or phone bot features.
 
-```bash
-python3 -m venv ~/claude/socops/venv
-source ~/claude/socops/venv/bin/activate
-pip install anthropic pyTelegramBotAPI
-```
+---
 
-If using a venv, update the systemd `ExecStart` line to point to the venv Python:
-```
-ExecStart=~/claude/socops/venv/bin/python3 ~/claude/socops/app.py
-```
+## Part 2: Installation
 
-### 2.2 File Layout
+### Step 1: Prepare Your Directory
 
-```
-~/claude/socops/
-├── app.py              Main server (all routes, background threads, all page HTML)
-├── db.py               SQLite schema and CRUD helpers
-├── wazuh.py            Wazuh/OpenSearch client
-├── analyst.py          AI analysis engine (Claude or stub)
-├── enrichment.py       IP threat intel (AbuseIPDB + OTX)
-├── notifier.py         Outbound notifications (webhook + SMTP)
-├── socops.service      systemd unit file
-├── .env.example        Configuration template
-├── .env                Active configuration (create from .env.example, not in git)
-├── socops.db           SQLite database (auto-created on first run, not in git)
-├── README.md           Technical reference
-├── MANUAL.md           User manual
-└── ADMIN.md            This document
-```
-
-### 2.3 Initial Configuration
+Make a folder where SOCops will live:
 
 ```bash
+mkdir -p ~/claude/socops
 cd ~/claude/socops
+```
+
+The `~` means "your home folder." If you're not sure where that is, run:
+```bash
+echo $HOME
+```
+
+### Step 2: Copy Configuration Template
+
+SOCops needs a configuration file (`.env`) with your Wazuh credentials. A template is provided:
+
+```bash
 cp .env.example .env
-chmod 600 .env          # protect credentials
-nano .env               # fill in values
 ```
 
-At minimum, set:
+This creates a `.env` file that looks like:
 ```env
-WAZUH_HOST=<your wazuh host or IP>
-WAZUH_USER=<opensearch username>
-WAZUH_PASS=<opensearch password>
+WAZUH_HOST=your.wazuh.host
+WAZUH_USER=changeme
+WAZUH_PASS=yourpassword
 ```
 
-All other variables have safe defaults and can be added incrementally.
+### Step 3: Edit Your Configuration
 
-### 2.4 First Run
+Open the `.env` file with your editor:
 
-Test the configuration before installing as a service:
+```bash
+nano .env
+```
+
+(If `nano` doesn't work, try `vi` or `cat .env` to see what's there.)
+
+**Find these three lines and fill them in:**
+
+| Line | Example | What It Means |
+|------|---------|--------------|
+| `WAZUH_HOST=` | `wazuh.company.com` | The hostname or IP address of your Wazuh server |
+| `WAZUH_USER=` | `monitor` | Username for Wazuh OpenSearch Dashboards (NOT the manager UI) |
+| `WAZUH_PASS=` | `MySecurePass123` | Password for that OpenSearch user |
+
+**Important:** The Wazuh credentials you put here are for **OpenSearch Dashboards**, not the Wazuh agent manager. OpenSearch Dashboards usually runs on the same server as Wazuh, on port 443.
+
+To test if you have the right credentials, try this in your browser:
+```
+https://your.wazuh.host/auth/login
+```
+
+You should see a login form. If you can log in with the username and password you put in `.env`, you have the right ones.
+
+**Protect Your Configuration:**
+The `.env` file contains passwords. Make sure only the SOCops server user can read it:
+
+```bash
+chmod 600 ~/.env
+```
+
+This means "only I can read and write this file, nobody else."
+
+---
+
+## Part 3: First Run (Testing)
+
+Before setting up automatic startup, test that everything works:
 
 ```bash
 cd ~/claude/socops
-env $(cat .env | grep -v '^#' | grep '=' | xargs) python3 app.py
+env $(cat .env | grep -v '^#' | xargs) python3 app.py
 ```
 
-Watch the startup output:
+**What this command does:**
+1. `env $(cat .env | grep -v '^#' | xargs)` — reads your `.env` file and loads all the variables into memory
+2. `python3 app.py` — starts the SOCops program
+
+**What you should see:**
 ```
 [poller] starting
 [analyst] starting
@@ -199,1223 +158,666 @@ Watch the startup output:
 SOCops listening on port 8081
 ```
 
-Open `http://localhost:8081/api/stats` in a browser or with curl. If you see a JSON stats object, the app is healthy. The database is created automatically on first start.
+If you see those four lines, congratulations — SOCops is running!
 
-The first poll runs immediately. With `INITIAL_WINDOW=now-24h`, the first fetch may import hundreds or thousands of alerts. Subsequent polls only fetch alerts newer than the last successful poll timestamp.
+**To access it:**
+Open your web browser and visit:
+```
+http://localhost:8081
+```
+
+(Or if you're running this on a remote server, use the server's IP address instead of `localhost`.)
+
+**If nothing appears:**
+This usually means a port is already in use, or the `.env` file has a wrong password. See the Troubleshooting section below.
+
+**To stop it:**
+Press `Ctrl+C` in the terminal where it's running.
 
 ---
 
-## 3. Running SOCops
+## Part 4: Running SOCops Permanently (systemd)
 
-### 3.1 Direct (foreground)
+The test above works, but if your server restarts, SOCops stops. To make it run automatically:
 
-Useful for testing and debugging. Logs print to the terminal. Ctrl+C to stop.
+### Step 1: Create a systemd Service Unit
 
-```bash
-cd ~/claude/socops
-env $(cat .env | grep -v '^#' | grep '=' | xargs) python3 app.py
-```
+SOCops comes with a service file. Copy it to the system directory:
 
-### 3.2 Background with nohup
-
-Useful for quick ad-hoc runs without setting up systemd. Not recommended for production — does not auto-restart on failure.
-
-```bash
-cd ~/claude/socops
-nohup env $(cat .env | grep -v '^#' | grep '=' | xargs) python3 app.py > /tmp/socops.log 2>&1 &
-echo "PID: $!"
-```
-
-Stop:
-```bash
-ps aux | grep "[a]pp.py" | awk '{print $2}' | xargs kill
-```
-
-View logs:
-```bash
-tail -f /tmp/socops.log
-```
-
-### 3.3 systemd Service (recommended)
-
-Provides automatic startup on boot, restart on failure, and proper log integration.
-
-**Install:**
 ```bash
 sudo cp ~/claude/socops/socops.service /etc/systemd/system/
+```
+
+### Step 2: Tell systemd About the New Service
+
+```bash
 sudo systemctl daemon-reload
-sudo systemctl enable socops          # start on boot
+```
+
+This tells the system "I just added a new service file, re-read your configuration."
+
+### Step 3: Enable It (So It Starts on Boot)
+
+```bash
+sudo systemctl enable socops
+```
+
+### Step 4: Start It Now
+
+```bash
 sudo systemctl start socops
 ```
 
-**Check status:**
+### Step 5: Verify It's Running
+
 ```bash
 sudo systemctl status socops
 ```
 
-**View logs:**
-```bash
-sudo journalctl -u socops -f          # follow live
-sudo journalctl -u socops --since "1 hour ago"
-sudo journalctl -u socops -n 100      # last 100 lines
+You should see:
+```
+● socops.service - SOCops — AI SOC Workbench for Wazuh
+     Loaded: loaded (/etc/systemd/system/socops.service; enabled; ...)
+     Active: active (running) since Thu 2026-04-19 10:15:32 UTC; 2min ago
+   Main PID: 1234 (python3)
 ```
 
-**Restart after config change:**
-```bash
-sudo systemctl restart socops
+If it says "Active: active (running)" — you're done! SOCops will now:
+- Start automatically when the server boots
+- Restart automatically if it crashes
+- Run in the background forever
+
+---
+
+## Part 5: Configuration Reference
+
+All settings come from the `.env` file. Here are all possible options:
+
+### Critical (Without These, SOCops Won't Start)
+
+```env
+WAZUH_HOST=your.wazuh.host    # IP or hostname of Wazuh OpenSearch
+WAZUH_USER=monitor             # OpenSearch Dashboards username
+WAZUH_PASS=yourpassword        # OpenSearch Dashboards password
 ```
 
-**Stop:**
-```bash
-sudo systemctl stop socops
+### Useful (Recommended)
+
+```env
+SOCOPS_PORT=8081               # Port to listen on (default 8081)
+POLL_INTERVAL=60               # Fetch alerts every N seconds (default 60)
+INITIAL_WINDOW=now-24h         # On first run, fetch last 24 hours (try now-7d if you want more)
+NOTIFY_LEVEL=12                # Send notifications for alerts this severe or worse (0-15)
 ```
 
-**The service unit** (`socops.service`) reads credentials from `.env` via the `EnvironmentFile=` directive. The `.env` file must exist and be readable by the service user (`YOUR_USER`) before starting.
+### For AI Analysis (Optional But Recommended)
 
-Service unit summary:
-```ini
-[Service]
-Type=simple
-User=YOUR_USER
-WorkingDirectory=~/claude/socops
-EnvironmentFile=~/claude/socops/.env
-ExecStart=/usr/bin/python3 ~/claude/socops/app.py
-Restart=on-failure
-RestartSec=10
+**Pick ONE of these:**
+
+#### Option A: Free local AI (Ollama)
+```env
+OLLAMA_BASE_URL=http://127.0.0.1:11434
+OLLAMA_MODEL=qwen2.5:3b
 ```
 
-`Restart=on-failure` means systemd will restart the process if it exits with a non-zero code (crashes, unhandled exceptions). It will not restart if you stop it manually with `systemctl stop`.
+**What this does:** Runs an AI model locally on your machine. No API keys needed, no monthly costs, all data stays private. Requires 4-8 GB RAM for the model.
 
-### 3.4 Verifying the Process
+#### Option B: Free cloud AI (OpenRouter)
+```env
+OPENROUTER_API_KEY=sk-or-...  # Get free key at openrouter.ai
+```
 
-```bash
-# Check process is running
-ps aux | grep "[a]pp.py"
+**What this does:** Uses OpenRouter's free models. Slower than Ollama but simpler setup, no local GPU needed.
 
-# Check port is listening
-ss -tlnp | grep 8081
+#### Option C: Paid cloud AI (Claude)
+```env
+ANTHROPIC_API_KEY=sk-ant-...  # Get key at console.anthropic.com
+```
 
-# Health check
-curl -s http://localhost:8081/api/stats | python3 -m json.tool
+**What this does:** Uses Claude Haiku (Anthropic's fast AI). Costs roughly $1-2/day for typical alert volumes. Best analysis quality.
 
-# Confirm Wazuh polling is working
-curl -s http://localhost:8081/api/stats | python3 -c "import json,sys; s=json.load(sys.stdin); print('Last poll:', s['last_poll'])"
+**If you set none of these:** SOCops falls back to simple rule-based analysis. Still useful, just less detailed.
+
+### For Threat Intelligence (Optional)
+
+```env
+ABUSEIPDB_KEY=abc123def456     # Get free key from abuseipdb.com (1000 lookups/day)
+OTX_KEY=xyz789uvw012           # Get free key from otx.alienvault.com
+```
+
+**What this does:** Looks up suspicious source IPs in threat intelligence databases. Shows you if an attacker IP is known to be malicious. Free tier is usually enough.
+
+### For Notifications (Optional)
+
+**Via Slack or ntfy (webhooks):**
+```env
+NOTIFY_WEBHOOK=https://hooks.slack.com/services/YOUR/SLACK/URL
+```
+
+**Via Email:**
+```env
+NOTIFY_EMAIL=analyst@company.com
+SMTP_HOST=smtp.gmail.com          # or your company's SMTP server
+SMTP_PORT=587
+SMTP_USER=sender@gmail.com
+SMTP_PASS=app-password-here       # For Gmail, get from myaccount.google.com
 ```
 
 ---
 
-## 4. Configuration Reference
+## Part 6: Understanding What's Happening
 
-All configuration is via environment variables. When running as a systemd service, these are loaded from `.env`. When running directly, source `.env` or pass variables on the command line.
+### The Three Worker Threads
 
-### 4.1 Required Variables
+SOCops runs three background tasks in parallel:
 
-| Variable | Description | Example |
-|---|---|---|
-| `WAZUH_HOST` | Wazuh/OpenSearch host (IP or hostname, no protocol) | `your.wazuh.host` |
-| `WAZUH_USER` | OpenSearch Dashboards username | `monitor` |
-| `WAZUH_PASS` | OpenSearch Dashboards password | `SecurePass123` |
+#### 1. The Poller (Every 60 Seconds)
+**What it does:** Wakes up, checks Wazuh for new alerts, stores them in the local database.
 
-### 4.2 App Behaviour Variables
+**In plain English:** Every 60 seconds, SOCops asks Wazuh "Hey, any new problems?" If Wazuh says yes, SOCops writes them down.
 
-| Variable | Default | Description |
-|---|---|---|
-| `SOCOPS_PORT` | `8081` | TCP port to listen on |
-| `POLL_INTERVAL` | `60` | Seconds between Wazuh polls |
-| `INITIAL_WINDOW` | `now-24h` | How far back to fetch on first run (OpenSearch relative time format) |
+**If it fails:** Usually means the Wazuh credentials are wrong, or Wazuh is down. Check the logs.
 
-**`INITIAL_WINDOW` values:** `now-1h`, `now-6h`, `now-24h`, `now-7d`, `now-30d`. On subsequent runs, the last poll timestamp stored in the database is used instead, so this only affects the very first run or after a database reset.
+#### 2. The Analyst (Continuous)
+**What it does:** Reads unanalyzed alerts and asks an AI to explain them (Claude, Ollama, or a fallback rule set).
 
-### 4.3 AI Analysis Variables
+**In plain English:** SOCops looks for alerts that nobody has explained yet. It asks an AI to say "here's what happened, here's what to do about it." This analysis shows up in the web interface for analysts to read.
 
-| Variable | Default | Description |
-|---|---|---|
-| `ANTHROPIC_API_KEY` | (empty) | Anthropic API key (`sk-ant-...`). If empty, falls back to stub analysis. |
+**If it fails:** Usually means the AI API key is wrong or the AI service is down. Falls back to rule-based analysis automatically.
 
-### 4.4 Threat Intel Variables
+**Cost:** If using Claude API, expect $0.001-$0.01 per alert depending on alert size.
 
-| Variable | Default | Description |
-|---|---|---|
-| `OTX_KEY` | (empty) | AlienVault OTX API key. If empty, OTX enrichment is skipped. |
-| `ABUSEIPDB_KEY` | (empty) | AbuseIPDB API key. If empty, AbuseIPDB enrichment is skipped. |
+#### 3. The Enrichment Worker (Every 30 Seconds)
+**What it does:** Looks for suspicious IP addresses in alerts and queries threat intelligence databases to see if they're known bad.
 
-Both keys are independently optional. If neither is set, the enrichment worker runs but produces no results and makes no network calls.
+**In plain English:** When an alert contains a source IP, SOCops asks "is this IP on any blocklists?" and shows the analyst a risk score.
 
-### 4.5 Notification Variables
-
-| Variable | Default | Description |
-|---|---|---|
-| `NOTIFY_WEBHOOK` | (empty) | Webhook URL for alert notifications (Slack, ntfy, generic). |
-| `NOTIFY_EMAIL` | (empty) | Recipient email address. |
-| `SMTP_HOST` | (empty) | SMTP server hostname. Required if `NOTIFY_EMAIL` is set. |
-| `SMTP_PORT` | `587` | SMTP port. Use 465 for SSL, 587 for STARTTLS. |
-| `SMTP_USER` | (empty) | SMTP authentication username. |
-| `SMTP_PASS` | (empty) | SMTP authentication password. |
-| `NOTIFY_LEVEL` | `12` | Minimum Wazuh rule level to trigger automatic notification. |
+**If it fails:** Usually means the API keys are wrong or rate limits are hit. Continues automatically the next day.
 
 ---
 
-## 5. Architecture and Process Model
+## Part 7: Database Management
 
-SOCops is a single Python process with one `ThreadingHTTPServer` and three background daemon threads.
+### Where Is My Data?
 
-### 5.1 Threads
-
-| Thread | Name | Behaviour |
-|---|---|---|
-| **Main** | (main) | ThreadingHTTPServer — handles HTTP requests, spawns a new thread per connection |
-| **Poller** | `poller` | Wakes every `POLL_INTERVAL` seconds, fetches new alerts from Wazuh, stores in SQLite, checks suppression rules, triggers notifications for high-severity alerts |
-| **Analyst** | `analyst` | Continuous loop — finds unanalyzed alerts (highest level first), calls Claude Haiku API or stub, stores analysis. Sleeps 10 seconds between batches. |
-| **Enrichment** | `enrichment` | Wakes every 30 seconds — finds alerts with a srcip that have no enrichment data, queries AbuseIPDB/OTX at 1 IP/second, stores results |
-
-All background threads are daemon threads — they die automatically if the main process exits. Each thread has its own `try/except` wrapper that prints errors and continues, preventing a single API failure from killing the thread.
-
-### 5.2 Wazuh Connection
-
-The `WazuhClient` in `wazuh.py` communicates with Wazuh's OpenSearch Dashboards HTTPS endpoint:
-
-1. **Authentication**: `POST https://<WAZUH_HOST>/auth/login` with JSON credentials. Receives a `security_authentication` session cookie.
-2. **Query**: `POST https://<WAZUH_HOST>/internal/search/opensearch-with-long-numerals` with an OpenSearch DSL query body. Returns paginated hits from the Wazuh alerts index.
-3. **Session reuse**: The session cookie is cached and reused across polls. If a query returns a 401 (session expired), the client re-authenticates automatically.
-
-SSL certificate verification is disabled (`ssl.CERT_NONE`) to support self-signed certificates common in Wazuh deployments. All traffic is still encrypted; only the certificate identity check is skipped.
-
-Connection timeout: 10 seconds for auth, 30 seconds for queries.
-
-### 5.3 Data Flow
-
-```
-Wazuh/OpenSearch
-      │
-      ▼ (every POLL_INTERVAL seconds)
- _poller() thread
-      │  fetch_new_alerts(since=last_poll_ts)
-      │  for each hit:
-      │    db.save_alert(hit)           → INSERT alerts (group_key computed)
-      │    check_suppressed(alert)      → if match: UPDATE status='suppressed'
-      │    notify_alert(alert)          → if level >= NOTIFY_LEVEL: webhook/email
-      │  db.set_setting('last_poll_ts') → store watermark for next poll
-      │
-      ▼ (continuous, 10s sleep between batches)
- _analyst_worker() thread
-      │  db.get_unanalyzed(limit=5)     → SELECT unanalyzed, ORDER BY level DESC
-      │  analyst.analyze(alert)         → Claude Haiku API or stub
-      │  db.update_alert(analysis=...)  → UPDATE alerts
-      │
-      ▼ (every 30s, 1 IP/sec)
- _enrichment_worker() thread
-      │  db.get_ips_needing_enrichment()→ SELECT WHERE srcip!='' AND enrichment IS NULL
-      │  enrichment.enrich_ip(ip)       → AbuseIPDB + OTX
-      │  db.set_enrichment(id, json)    → UPDATE alerts
-      │
-      ▼ (on HTTP request)
- ThreadingHTTPServer (main thread)
-      │  GET /api/alerts               → db.get_alerts()
-      │  GET /api/alerts/<id>          → db.get_alert() + parse full_json
-      │  POST /api/alerts/<id>/action  → db.update_alert() + notifier if escalate
-      │  GET /api/data                 → wazuh.fetch_*() with 5-min in-memory cache
-      │  ... all other routes
-      ▼
-    Browser
-```
-
----
-
-## 6. Database Administration
-
-### 6.1 Schema Overview
-
-SOCops uses a single SQLite file with six tables:
-
-**`alerts`** — Primary alert store. One row per Wazuh alert hit.
-
-Key columns: `id`, `wazuh_id` (unique — prevents duplicate imports), `timestamp`, `agent_name`, `agent_ip`, `rule_id`, `rule_level`, `rule_description`, `rule_groups` (JSON array), `mitre_technique`, `mitre_tactic`, `srcip`, `full_json` (complete Wazuh event JSON), `group_key` (`agent::rule_id`), `enrichment` (JSON from threat intel), `assigned_to`, `status`, `analysis`, `operator_notes`, `created_at`, `updated_at`.
-
-**`alert_notes`** — Timestamped notes thread per alert. `auto_generated=1` for system-generated status change entries.
-
-**`cases`** — Incident containers. `status` lifecycle: `open` → `in_progress` → `resolved` → `closed`.
-
-**`case_alerts`** — Many-to-many join: alerts ↔ cases.
-
-**`suppression_rules`** — Ingest-time suppression conditions. `hits` counter incremented on each suppression.
-
-**`settings`** — Key/value store. Currently holds: `last_poll_ts` (ISO timestamp of last successful poll) and `last_poll_time` (human-readable last poll time shown in header).
-
-**Indexes:** `status`, `timestamp`, `rule_level`, `agent_name`, `alert_notes.alert_id`.
-
-### 6.2 Location and Size
+All alert data lives in a single SQLite database file:
 
 ```
 ~/claude/socops/socops.db
 ```
 
-Database size grows with alert volume. The `full_json` column stores the complete raw Wazuh event JSON (typically 1–5 KB per alert). Rough estimates:
+SQLite is a file-based database (not a server). Think of it like a spreadsheet that Python can query quickly.
 
-| Alerts | Approximate DB size |
-|---|---|
-| 1,000 | ~3 MB |
-| 10,000 | ~25–30 MB |
-| 100,000 | ~250–300 MB |
-| 1,000,000 | ~2.5 GB |
+### How Big Will It Get?
 
-At current ingestion rates (~1,500–2,000 alerts/day), plan for ~60–80 MB/month. Monitor with:
+Database size depends on how many alerts you get:
 
-```bash
-du -sh ~/claude/socops/socops.db
-```
+| Alerts Per Day | Approx Database Size | Growth Per Month |
+|---|---|---|
+| 100 | 3 MB | 3 MB |
+| 500 | 15 MB | 15 MB |
+| 1,000 | 30 MB | 30 MB |
+| 5,000 | 150 MB | 150 MB |
+| 10,000 | 300 MB | 300 MB |
 
-### 6.3 Backup
+**At typical SOC volumes (1,000-2,000 alerts/day), expect 30-60 MB per month.**
 
-SOCops has no built-in backup. Use standard SQLite backup methods.
+### How to Backup
 
-**Safe online backup (while app is running):**
-
-```bash
-sqlite3 ~/claude/socops/socops.db ".backup /backup/socops-$(date +%Y%m%d).db"
-```
-
-The `.backup` command uses the SQLite online backup API — it is safe to run while the application is writing to the database.
-
-**Scheduled backup with cron:**
+The database is just one file. Back it up like any other file:
 
 ```bash
+# Quick backup
+cp ~/claude/socops/socops.db ~/claude/socops/socops.db.backup
+
+# Scheduled daily backup at 2 AM
 crontab -e
+# Add this line:
+# 0 2 * * * cp ~/claude/socops/socops.db /backups/socops-$(date +\%Y\%m\%d).db
 ```
 
-Add:
-```
-0 2 * * * sqlite3 ~/claude/socops/socops.db ".backup /backup/socops-$(date +\%Y\%m\%d).db" && find /backup -name "socops-*.db" -mtime +30 -delete
+**Online backup (while SOCops is running):**
+```bash
+sqlite3 ~/claude/socops/socops.db ".backup /backups/socops-$(date +%Y%m%d).db"
 ```
 
-This backs up nightly at 02:00 and retains 30 days of backups.
+### How to Restore
 
-**Simple file copy (requires stopping the app first):**
+If the database gets corrupted or deleted:
 
 ```bash
+# Stop SOCops
 sudo systemctl stop socops
-cp ~/claude/socops/socops.db /backup/socops-$(date +%Y%m%d).db
+
+# Restore from backup
+cp /backups/socops-20260419.db ~/claude/socops/socops.db
+
+# Start it again
 sudo systemctl start socops
 ```
 
-### 6.4 Restore
+On the next poll, SOCops will fetch any missing alerts from Wazuh and fill in the gaps.
 
-```bash
-sudo systemctl stop socops
-cp /backup/socops-20260327.db ~/claude/socops/socops.db
-sudo systemctl start socops
-```
+### How to Clean Up Old Data
 
-After restore, verify:
-```bash
-curl -s http://localhost:8081/api/stats
-```
-
-Note: restoring an older backup means alerts ingested after the backup date will be re-imported on the next poll (they will not create duplicates, as `wazuh_id` is UNIQUE — they will simply be skipped). The `last_poll_ts` setting in the restored database determines how far back the next poll fetches.
-
-To force a full re-import from a specific date after restore:
+After several months, the database might get large. You can safely delete old acknowledged alerts:
 
 ```bash
 python3 -c "
-import sys; sys.path.insert(0, '~/claude/socops')
-import db
-db.set_setting('last_poll_ts', 'now-7d')
-print('Done')
-"
-```
-
-### 6.5 Pruning Old Alerts
-
-To prevent unbounded growth, periodically delete old resolved alerts. Always keep a backup before pruning.
-
-**Delete acknowledged and FP alerts older than 90 days:**
-
-```bash
-python3 -c "
-import sys; sys.path.insert(0, '~/claude/socops')
-import sqlite3, db
-conn = sqlite3.connect(db.DB_PATH)
-result = conn.execute(\"\"\"
+import sqlite3
+conn = sqlite3.connect('~/claude/socops/socops.db')
+# Delete acknowledged and false positive alerts older than 90 days
+conn.execute(\"\"\"
     DELETE FROM alerts
-    WHERE status IN ('ack', 'fp', 'suppressed')
+    WHERE status IN ('ack', 'fp')
     AND created_at < datetime('now', '-90 days')
 \"\"\")
 conn.commit()
-print(f'Deleted {result.rowcount} alerts')
+print(f'Deleted {conn.total_changes} old alerts')
 conn.close()
 "
 ```
 
-**Reclaim disk space after deletion (VACUUM):**
-
-Stop the app first, then:
+Then reclaim disk space:
 ```bash
 sudo systemctl stop socops
 sqlite3 ~/claude/socops/socops.db "VACUUM;"
 sudo systemctl start socops
 ```
 
-`VACUUM` rewrites the database file to reclaim freed pages. It can take minutes on large databases and requires approximately the same amount of free disk space as the current database size.
+---
 
-### 6.6 Schema Migration
+## Part 8: Wazuh Integration
 
-New columns are added automatically by `db.init_db()` using `ALTER TABLE ... ADD COLUMN` inside a `try/except` block. This means:
+### How Does SOCops Connect to Wazuh?
 
-- Upgrading to a new version of SOCops that adds columns is safe — `init_db()` runs on startup and adds missing columns idempotently.
-- New tables are created with `CREATE TABLE IF NOT EXISTS` — also idempotent.
-- Column type changes or column renames are **not** handled automatically and would require a manual migration.
+**The simple answer:** SOCops opens a web browser session to Wazuh's login page, just like a human would. Once logged in, it uses that session to request alerts.
 
-To manually add a column if needed:
+**The technical answer:** SOCops sends HTTPS requests to:
+1. `https://WAZUH_HOST/auth/login` — logs in with your credentials
+2. `https://WAZUH_HOST/internal/search/opensearch-with-long-numerals` — queries for new alerts
+3. All requests use the session cookie from step 1
 
-```bash
-python3 -c "
-import sqlite3
-conn = sqlite3.connect('~/claude/socops/socops.db')
-try:
-    conn.execute('ALTER TABLE alerts ADD COLUMN my_new_column TEXT DEFAULT \"\"')
-    conn.commit()
-    print('Column added')
-except Exception as e:
-    print(f'Skipped: {e}')
-"
-```
+### What Credentials Does SOCops Need?
 
-### 6.7 Inspecting the Database
+SOCops needs a **read-only** OpenSearch Dashboards account. You should create a dedicated account just for SOCops:
 
-While the app is running, use the API for safe read access. For direct inspection, use Python's sqlite3 module:
+**In Wazuh Web UI:**
+1. Go to Security → Internal Users
+2. Click "Create user"
+3. Username: `socops` or `monitor`
+4. Password: something long and random
+5. Backend roles: `readall` (read-only)
+6. Confirm
 
-```bash
-python3 -c "
-import sqlite3, json
-conn = sqlite3.connect('~/claude/socops/socops.db')
-conn.row_factory = sqlite3.Row
+This account can read alerts but cannot change anything in Wazuh.
 
-# Alert counts by status
-for row in conn.execute('SELECT status, COUNT(*) as n FROM alerts GROUP BY status ORDER BY n DESC'):
-    print(f'{row[\"status\"]:15} {row[\"n\"]}')
-"
-```
+### SSL Certificates
 
-```bash
-# Top rules
-python3 -c "
-import sqlite3
-conn = sqlite3.connect('~/claude/socops/socops.db')
-for r in conn.execute('SELECT rule_id, rule_description, COUNT(*) n FROM alerts GROUP BY rule_id ORDER BY n DESC LIMIT 10').fetchall():
-    print(f'{r[2]:6} {r[0]:8} {r[1][:60]}')
-"
-```
+By default, most Wazuh installations use a self-signed SSL certificate (not from a trusted authority). This is fine — SOCops accepts these certificates. All traffic is still encrypted, even if the certificate isn't "trusted."
+
+If your Wazuh uses a real SSL certificate from a trusted authority, SOCops will accept that too.
+
+### What If Wazuh Is Down?
+
+SOCops handles this gracefully:
+1. If Wazuh is down when the poller runs, it logs the error and tries again in 60 seconds.
+2. The web interface still works — it just shows old data from the last successful poll.
+3. Once Wazuh comes back, SOCops catches up automatically.
 
 ---
 
-## 7. Wazuh Integration
+## Part 9: Filtering Noisy Alerts
 
-### 7.1 Required Wazuh Account
+### What's a "Noisy" Alert?
 
-SOCops requires a Wazuh/OpenSearch Dashboards account with read access to the alerts index. Create a dedicated `monitor` (read-only) account:
+Some alerts fire constantly but are harmless. Examples:
+- "SSH authentication succeeded" (thousands per day)
+- "VirusTotal API rate limit exceeded" (not a real threat)
+- "Systemd service restarted" (normal on test servers)
 
-In Wazuh/OpenSearch Dashboards → Security → Internal users → Create user:
-- Username: `monitor`
-- Password: strong password
-- Backend roles: `readall` (read-only access to all indices)
+These clutter the queue and hide real security issues.
 
-This account only needs `GET` and `POST` (for search) permissions on the `wazuh-alerts-*` index pattern. It does not need write, delete, or admin permissions.
+### How to Filter Them
 
-### 7.2 SSL / Certificate Handling
-
-SOCops disables SSL certificate verification (`ssl.CERT_NONE`) to support Wazuh deployments with self-signed certificates, which is the default for most Wazuh installations. Traffic is still encrypted.
-
-If your Wazuh uses a trusted CA-signed certificate and you want to enforce verification, edit `wazuh.py`:
-
-```python
-# Line 44-46: replace
-self._ctx = ssl.create_default_context()
-self._ctx.check_hostname = False
-self._ctx.verify_mode = ssl.CERT_NONE
-
-# With:
-self._ctx = ssl.create_default_context()
-# (default: verify_mode=CERT_REQUIRED, check_hostname=True)
-```
-
-To use a specific CA certificate:
-```python
-self._ctx = ssl.create_default_context(cafile="/etc/ssl/certs/your-ca.pem")
-```
-
-### 7.3 Noise Filtering
-
-Alerts matching entries in `NOISE_MUST_NOT` in `wazuh.py` are excluded from the OpenSearch query entirely — they are never fetched and never stored. This is more efficient than suppression rules (which store alerts but hide them) and should be used for alerts that are universally worthless.
-
-Current noise filters:
-- VirusTotal rate limit errors
-- VirusTotal no-records messages
-- PAM login session opened/closed
-- SSH authentication success
-- Wazuh agent started
-- Wazuh manager started
-- OSSEC server started
-
-**To add a noise filter**, edit `wazuh.py` → `NOISE_MUST_NOT` list:
+Edit `wazuh.py` and find the `NOISE_MUST_NOT` list (around line 30):
 
 ```python
 NOISE_MUST_NOT = [
-    ...existing entries...,
-    {"match_phrase": {"rule.description": "Your noisy rule description here"}},
-    # Or match on rule.id:
-    {"match": {"rule.id": "12345"}},
+    {"match_phrase": {"rule.description": "VirusTotal: Error"}},
+    {"match_phrase": {"rule.description": "SSH authentication success"}},
+    # Add more here like this:
+    {"match_phrase": {"rule.description": "Your noisy alert description"}},
 ]
 ```
 
-Restart the app after editing. Changes only affect future polls — already-stored alerts are not retroactively removed.
+**Each line:** "If an alert matches this description, don't even store it."
 
-**Difference between noise filters and suppression rules:**
+This is different from suppression rules in the UI — these filters prevent alerts from entering the database at all.
 
-| | Noise filters | Suppression rules |
-|---|---|---|
-| Where configured | `wazuh.py` source code | Web UI / API |
-| Storage | Alerts never stored | Alerts stored with status=suppressed |
-| Audit trail | None | Hits counter, reason field |
-| Reversible | Requires code edit + restart | Delete rule in UI |
-| Best for | Universally irrelevant alerts | Environment-specific tuning |
+### How to Find Noisy Rules
 
-### 7.4 Poll Window and Backfill
-
-The poller uses a high-water-mark approach:
-1. On first run: fetch all alerts from `INITIAL_WINDOW` to now.
-2. Store the latest alert timestamp as `last_poll_ts` in the settings table.
-3. On subsequent runs: fetch only alerts newer than `last_poll_ts`.
-
-If the app is stopped for an extended period, it will backfill on restart from `last_poll_ts`. If the gap is larger than Wazuh's index retention window, some alerts may be missed — this is expected behaviour.
-
-**To reset the poll window** (fetch from a specific point):
-
-```bash
-python3 -c "
-import sys; sys.path.insert(0, '~/claude/socops')
-import db
-db.set_setting('last_poll_ts', '2026-03-01T00:00:00.000+0000')
-print('Poll window reset')
-"
-```
-
-Restart the app — the next poll will fetch all alerts since that timestamp.
-
-### 7.5 Alert Fetch Limit
-
-`fetch_new_alerts()` in `wazuh.py` fetches up to 500 alerts per poll by default (`size=500` in the OpenSearch query). If your environment generates more than 500 alerts per `POLL_INTERVAL` seconds, some alerts may be missed.
-
-To increase the limit, edit `wazuh.py`:
-
-```python
-def fetch_new_alerts(self, since_iso, size=500):  # change to 1000 or 2000
-```
-
-Higher values increase memory usage and response time. For very high-volume environments, reduce `POLL_INTERVAL` instead of increasing `size`, so alerts are fetched more frequently in smaller batches.
+1. Run SOCops for a week
+2. Go to Metrics page
+3. Look at "Noisy Rules Table"
+4. Find rules with high counts and high false positive rates
+5. Add them to the filter list above
 
 ---
 
-## 8. Threat Intel Enrichment
+## Part 10: Troubleshooting
 
-### 8.1 AbuseIPDB
+### Problem: "Port 8081 already in use"
 
-Register at https://www.abuseipdb.com → API → Create key.
-
-Free tier: 1,000 lookups/day. Each unique `srcip` is looked up once and cached permanently in the `enrichment` column. With a typical alert environment, daily lookup counts stay well within the free tier.
-
-Set in `.env`:
-```env
-ABUSEIPDB_KEY=your_key_here
+**Error message:**
+```
+OSError: [Errno 98] Address already in use
 ```
 
-Data stored per IP: `abuseConfidenceScore` (0–100%), `totalReports`, `countryCode`, `isp`.
+**Cause:** Another process is using port 8081.
 
-### 8.2 AlienVault OTX
-
-Log in at https://otx.alienvault.com → API Keys → Copy your key.
-
-Free for commercial use with no documented rate limit (soft limit applies — stay under ~1,000 lookups/day to be safe).
-
-Set in `.env`:
-```env
-OTX_KEY=your_key_here
-```
-
-Data stored per IP: `pulse_count` (threat intel reports referencing this IP), `country`, `reputation`.
-
-### 8.3 Rate Limits
-
-The enrichment worker enforces a 1-second sleep between IP lookups (`time.sleep(1)` in `_enrichment_worker()`). This limits throughput to ~60 enrichments per minute, ~3,600/hour.
-
-At startup with a large existing alert database, the enrichment backlog (alerts with srcip but no enrichment) may take time to process. Priority is given to recently ingested alerts as they are processed in insertion order.
-
-To check enrichment progress:
-
+**Fix:**
 ```bash
+# Find what's using port 8081
+lsof -i :8081
+# or
+ss -tlnp | grep 8081
+
+# Kill it
+kill -9 <PID>
+
+# Or change the port in .env
+SOCOPS_PORT=8082
+```
+
+### Problem: "Connection refused" when accessing SOCops
+
+**What you see:** Browser says "Connection refused" or "Cannot reach server"
+
+**Causes:**
+1. SOCops isn't running
+2. Firewall is blocking port 8081
+3. You're using the wrong IP/hostname
+
+**Fixes:**
+```bash
+# Check if it's running
+sudo systemctl status socops
+
+# Check if port is listening
+ss -tlnp | grep 8081
+
+# Check if firewall allows it
+sudo ufw status
+
+# If firewall blocks it, allow it:
+sudo ufw allow 8081
+```
+
+### Problem: "Login failed" — Wazuh Connection Error
+
+**Error message in logs:**
+```
+[poller] error: Login failed — no session cookie returned
+```
+
+**Causes:**
+1. Wrong username or password in `.env`
+2. OpenSearch Dashboards is down
+3. Wazuh hostname is wrong
+
+**Fixes:**
+```bash
+# Test the credentials manually
+curl -k -X POST "https://YOUR.WAZUH.HOST/auth/login" \
+  -H "Content-Type: application/json" \
+  -d '{"username":"monitor","password":"yourpassword"}'
+
+# If you get a response (not an error), credentials are right
+
+# Test if Wazuh is reachable
+curl -k "https://YOUR.WAZUH.HOST/auth/login"
+
+# Should show a login page (or JSON response)
+```
+
+### Problem: No Alerts Appearing
+
+**What you see:** Queue is empty even though Wazuh has alerts
+
+**Causes:**
+1. First poll window is wrong (no alerts in last 24 hours)
+2. Poller is failing silently
+3. All alerts are being suppressed
+
+**Fixes:**
+```bash
+# Check logs for errors
+sudo journalctl -u socops | grep error
+
+# Check if poller is running
+sudo journalctl -u socops | grep poller
+
+# Force a full re-import from last 7 days
 python3 -c "
 import sqlite3
-conn = sqlite3.connect('~/claude/socops/socops.db')
-total = conn.execute(\"SELECT COUNT(*) FROM alerts WHERE srcip != ''\").fetchone()[0]
-done  = conn.execute(\"SELECT COUNT(*) FROM alerts WHERE srcip != '' AND enrichment IS NOT NULL\").fetchone()[0]
-print(f'Enriched: {done}/{total} ({100*done//total if total else 0}%)')
+conn = sqlite3.connect('socops.db')
+conn.execute(\"UPDATE settings SET last_poll_ts = '2026-04-10T00:00:00Z'\")
+conn.commit()
+print('Reset poll window. Next poll will backfill.')
 "
+
+# Restart SOCops
+sudo systemctl restart socops
 ```
 
-### 8.4 Disabling Enrichment
+### Problem: AI Analysis Isn't Working
 
-Leave both `OTX_KEY` and `ABUSEIPDB_KEY` empty. The enrichment worker will start but make no API calls and produce no results. No code change needed.
+**What you see:** Alerts show "Analysis not available" or stub/fallback text
 
----
+**Causes:**
+1. API key is missing or wrong
+2. API service is down
+3. Account has no credits
 
-## 9. AI Analysis
-
-### 9.1 Claude Haiku Integration
-
-When `ANTHROPIC_API_KEY` is set and the account has credits, each alert is analyzed by `claude-haiku-4-5-20251001`. The analysis worker runs continuously, processing the highest-severity unanalyzed alerts first.
-
-The system prompt instructs the model to produce structured markdown analysis covering: what happened, severity context, and numbered remediation steps. The full alert context is passed: rule description, level, agent, MITRE mapping, and raw event fields.
-
-Token usage per alert: approximately 600–800 tokens (prompt + completion). At Claude Haiku's pricing, this is less than $0.001 per alert.
-
-### 9.2 Fallback Stub Analysis
-
-When no API key is configured, or when the API returns an error (rate limit, insufficient credits, network failure), `analyst.py` falls back to a rule-based stub:
-
-- MITRE tactic → remediation action mapping
-- Rule group context for event framing
-- Severity-based urgency text
-
-The stub analysis is less nuanced than Claude but remains actionable. It does not require any external connectivity.
-
-The fallback is automatic — no configuration change needed. If the API key is later added or credits are replenished, new alerts will use Claude immediately. Existing stub-analyzed alerts will not be re-analyzed.
-
-### 9.3 Token Usage and Cost
-
-To estimate costs for your alert volume:
-
-```
-Daily alerts × 700 tokens average × Claude Haiku price per million tokens
-```
-
-At ~1,500 new alerts/day: 1,500 × 700 = ~1.05M tokens/day. At Haiku pricing (~$0.80/1M input + $4.00/1M output tokens), expect roughly $1–2/day for a medium-volume environment.
-
-To reduce cost:
-- Increase suppression coverage to reduce the number of alerts reaching the analyst queue
-- The analyst worker only processes alerts with `status='new'` and `analysis IS NULL` — acknowledged and FP alerts are never re-analyzed
-
-### 9.4 Model Selection
-
-The model is hardcoded in `analyst.py`. To change it, edit:
-
-```python
-# analyst.py
-MODEL = "claude-haiku-4-5-20251001"   # current
-# Options:
-# "claude-sonnet-4-6"                 # smarter, ~10x cost
-# "claude-haiku-4-5-20251001"         # fast, cheap — recommended for bulk analysis
-```
-
-Restart the app after changing. Existing analyses are not re-run.
-
----
-
-## 10. Notification Setup
-
-### 10.1 Webhook
-
-SOCops sends a `POST` request to `NOTIFY_WEBHOOK` with `Content-Type: application/json`:
-
-```json
-{
-  "text": "🚨 CRITICAL | Registry Key Integrity Checksum Changed\nAgent: SV08 | Level: 14\nTime: 2026-03-28T09:14:22.000+0100",
-  "alert_id": 4521
-}
-```
-
-**Slack incoming webhook:**
-```env
-NOTIFY_WEBHOOK=https://hooks.slack.com/services/T.../B.../...
-```
-
-**ntfy.sh (self-hosted or cloud push notifications):**
-```env
-NOTIFY_WEBHOOK=https://ntfy.sh/your-topic
-```
-
-**Generic webhook (e.g. n8n, Make, Zapier):**
-```env
-NOTIFY_WEBHOOK=https://your-webhook-endpoint.com/socops
-```
-
-### 10.2 Email via SMTP
-
-Example configuration for Gmail (requires App Password, not account password):
-
-```env
-NOTIFY_EMAIL=analyst@yourcompany.com
-SMTP_HOST=smtp.gmail.com
-SMTP_PORT=587
-SMTP_USER=sender@gmail.com
-SMTP_PASS=xxxx-xxxx-xxxx-xxxx   # Gmail App Password
-```
-
-Example for a corporate SMTP relay:
-```env
-NOTIFY_EMAIL=soc-team@company.com
-SMTP_HOST=smtp.company.com
-SMTP_PORT=587
-SMTP_USER=socops-notifications@company.com
-SMTP_PASS=password
-```
-
-For SMTP on port 465 (implicit SSL), change `SMTP_PORT=465` and update `notifier.py` to use `smtplib.SMTP_SSL` instead of `smtplib.SMTP` with `starttls()`.
-
-### 10.3 Testing Notifications
-
-Test the notification configuration without waiting for a real high-severity alert:
-
+**Fixes:**
 ```bash
+# If using Ollama, check it's running
+curl http://127.0.0.1:11434/api/tags
+
+# If using Claude, check the key in .env is correct (sk-ant-...)
+
+# Force re-analysis of all alerts
 python3 -c "
-import sys; sys.path.insert(0, '~/claude/socops')
-import os
-os.environ['NOTIFY_WEBHOOK'] = 'https://your-webhook-url'
-os.environ['NOTIFY_EMAIL']   = 'you@example.com'
-os.environ['SMTP_HOST']      = 'smtp.example.com'
-os.environ['SMTP_USER']      = 'user'
-os.environ['SMTP_PASS']      = 'pass'
-os.environ['NOTIFY_LEVEL']   = '0'   # send for all levels
-import notifier
-notifier.notify_alert({
-    'id': 0,
-    'rule_level': 14,
-    'rule_description': 'TEST - SOCops notification test',
-    'agent_name': 'test-agent',
-    'timestamp': '2026-03-28T00:00:00.000Z',
-}, trigger='auto')
-print('Sent (check for errors above)')
+import sqlite3
+conn = sqlite3.connect('socops.db')
+conn.execute('UPDATE alerts SET analysis = NULL')
+conn.commit()
+print('Reset all analyses. Next run will re-analyze.')
 "
+
+# Check logs for API errors
+sudo journalctl -u socops | grep -i "claude\|anthropic\|ollama\|error"
 ```
 
----
+### Problem: High Memory or CPU Usage
 
-## 11. Telegram Bot
+**Causes:**
+1. Database is very large (500K+ alerts)
+2. Analyst worker is stuck in a loop
+3. Browser is polling too frequently
 
-A separate Telegram bot at `~/claude/telebot/` lets you interact with Claude from a phone. It is independent of the SOCops queue — it provides a direct Claude conversation interface, not SOCops alert access.
-
-### 11.1 Setup
-
-1. Create a bot via Telegram's @BotFather → `/newbot` → copy the token.
-2. Edit `~/claude/telebot/.env`:
-   ```env
-   TELEGRAM_BOT_TOKEN=your_bot_token
-   ALLOWED_USER_ID=0              # 0 = accept all (setup mode)
-   ANTHROPIC_API_KEY=sk-ant-...
-   CLAUDE_MODEL=claude-sonnet-4-6
-   MAX_TURNS=40
-   ```
-3. Start the bot: `cd ~/claude/telebot && python3 bot.py`
-4. Message the bot on Telegram and send `/myid` — it will reply with your numeric Telegram user ID.
-5. Update `.env`: set `ALLOWED_USER_ID=<your_id>` and restart.
-
-### 11.2 Running as a Service
-
+**Fixes:**
 ```bash
-sudo cp ~/claude/telebot/telebot.service /etc/systemd/system/
-sudo systemctl daemon-reload
-sudo systemctl enable --now telebot
-sudo journalctl -u telebot -f
-```
+# Check database size
+du -sh socops.db
 
-### 11.3 Securing the Bot
+# If > 1 GB, prune old alerts (see Part 7)
 
-`ALLOWED_USER_ID` restricts the bot to a single Telegram account. Messages from any other user ID are silently dropped. This is enforced in `bot.py` before any processing occurs.
+# Check what Python is doing
+ps aux | grep "[p]ython3 app.py"
 
-In setup mode (`ALLOWED_USER_ID=0`), the bot responds to anyone. Never leave the bot in setup mode in production — always set an ALLOWED_USER_ID.
+# Check if analyst worker is running
+sudo journalctl -u socops | tail -20 | grep analyst
 
-Bot commands: `/clear` reset conversation history · `/model` show active model · `/myid` show your user ID · `/help` command list.
-
----
-
-## 12. Logs and Monitoring
-
-### 12.1 Log Output
-
-SOCops logs to stdout/stderr. When running as a systemd service, logs go to the journal. When running with nohup, logs go to the specified file.
-
-Log lines use `[thread_name]` prefixes:
-```
-[poller] starting
-[poller] fetched 47 new alerts
-[poller] error: <exception message>
-[analyst] starting
-[analyst] error: <exception message>
-[enrichment] starting
-[enrichment] error: <exception message>
-```
-
-HTTP request logs use the standard `BaseHTTPRequestHandler` format:
-```
-10.0.0.10 - - [28/Mar/2026 09:15:32] "GET /api/stats HTTP/1.1" 200 -
-```
-
-### 12.2 Monitoring with systemd
-
-```bash
-# Is the service running?
-systemctl is-active socops
-
-# Last 50 log lines
-journalctl -u socops -n 50
-
-# Follow live
-journalctl -u socops -f
-
-# Errors only
-journalctl -u socops -p err
-
-# Since last restart
-journalctl -u socops --since "$(systemctl show socops -p ActiveEnterTimestamp --value)"
-```
-
-### 12.3 Health Check Endpoint
-
-`GET /api/stats` always returns a JSON object. Use it as a health check:
-
-```bash
-# Simple health check
-curl -sf http://localhost:8081/api/stats > /dev/null && echo OK || echo FAIL
-
-# Check polling is recent (last_poll within last 5 minutes)
-python3 -c "
-import urllib.request, json
-from datetime import datetime, timezone, timedelta
-data = json.loads(urllib.request.urlopen('http://localhost:8081/api/stats').read())
-last = data.get('last_poll','never')
-if last == 'never':
-    print('WARN: never polled')
-else:
-    age = datetime.now(timezone.utc) - datetime.fromisoformat(last)
-    if age > timedelta(minutes=5):
-        print(f'WARN: last poll {int(age.total_seconds()/60)}m ago')
-    else:
-        print(f'OK: last poll {int(age.total_seconds())}s ago')
-"
-```
-
-Add this to a cron job or monitoring system to alert when polling stops:
-```
-*/5 * * * * curl -sf http://localhost:8081/api/stats > /dev/null || echo "SOCops unhealthy" | mail -s "SOCops alert" admin@company.com
-```
-
-### 12.4 Thread Health
-
-SOCops does not expose a thread health API. To verify background threads are alive, check that `last_poll_time` is updating:
-
-```bash
-# Poll time should update every POLL_INTERVAL seconds
-watch -n 5 'curl -s http://localhost:8081/api/stats | python3 -c "import json,sys; s=json.load(sys.stdin); print(s[\"last_poll\"])"'
-```
-
-If `last_poll` stops updating, the poller thread has died (usually due to repeated unhandled errors). Restart the service to recover:
-```bash
+# Restart to reset memory
 sudo systemctl restart socops
 ```
 
 ---
 
-## 13. Security Hardening
+## Part 11: Monitoring & Maintenance
 
-### 13.1 Network Access
-
-SOCops binds to `0.0.0.0:8081` by default — it is accessible from any network interface. There is no authentication on the web UI.
-
-**Recommended approach:** restrict access to the management VLAN or trusted IPs using the host firewall.
+### Daily Health Check
 
 ```bash
-# Allow only from specific management subnet
+# Is it running?
+sudo systemctl is-active socops
+
+# Any errors overnight?
+sudo journalctl -u socops --since "8 hours ago" | grep error
+
+# When was the last poll?
+curl -s http://localhost:8081/api/stats | python3 -c "
+import json, sys
+data = json.load(sys.stdin)
+print('Last poll:', data['last_poll'])
+"
+```
+
+### Weekly Tasks
+
+**Every Monday:**
+1. Check database size: `du -sh ~/claude/socops/socops.db`
+2. Review the Metrics page for top noisy rules
+3. Check if any suppression rules need renewal (expiration dates)
+
+**Every Month:**
+1. Rotate API keys (AbuseIPDB, OTX, Anthropic) if using them
+2. Clean up old acknowledged alerts (see Part 7)
+3. Verify backups are working
+
+### Updating SOCops
+
+If a new version is released:
+
+```bash
+# Backup first
+cp ~/claude/socops/socops.db ~/claude/socops/socops.db.backup
+
+# Download new version (exact steps depend on your setup)
+# Replace app.py, db.py, wazuh.py, etc. with new files
+
+# Restart
+sudo systemctl restart socops
+
+# Watch logs for errors
+sudo journalctl -u socops -f
+```
+
+Database migrations (schema changes) run automatically on startup.
+
+---
+
+## Part 12: Security
+
+### Who Can Access SOCops?
+
+By default, **anyone on your network** can access SOCops at port 8081. There's no login screen.
+
+**For production, restrict access:**
+
+```bash
+# Option 1: Firewall — only allow from specific IPs
 sudo ufw allow from 10.0.0.0/24 to any port 8081
 
-# Or allow only from a specific host
-sudo ufw allow from 10.0.0.10 to any port 8081
+# Option 2: Reverse proxy with nginx + password (see below)
 
-# Deny all other access to port 8081
-sudo ufw deny 8081
+# Option 3: VPN — require VPN to reach the server
 ```
 
-If SOCops must be accessible over the internet, place it behind a reverse proxy with TLS and HTTP basic auth (see section 13.4).
+### Add a Login Screen (Optional)
 
-### 13.2 Credential Storage
-
-The `.env` file contains all credentials (Wazuh password, API keys). Protect it:
+Put SOCops behind nginx with HTTP basic auth:
 
 ```bash
-chmod 600 ~/claude/socops/.env
-chown YOUR_USER:YOUR_USER ~/claude/socops/.env
+# Install nginx
+sudo apt install nginx
+
+# Create password file
+sudo htpasswd -c /etc/nginx/.htpasswd analyst
+
+# Create nginx config (edit /etc/nginx/sites-enabled/socops)
+sudo nano /etc/nginx/sites-enabled/socops
 ```
 
-Do not commit `.env` to git. The `.gitignore` should exclude it:
-```
-.env
-socops.db
-__pycache__/
-*.pyc
-```
-
-### 13.3 Wazuh Monitor Account
-
-The Wazuh account used by SOCops should be read-only. Verify:
-- Account role: `readall` only, no write permissions
-- No ability to modify Wazuh agent configuration, rules, or decoders
-- No cluster admin permissions
-
-Rotate the password every 90 days (or per your security policy) by updating `WAZUH_PASS` in `.env` and restarting the service.
-
-### 13.4 Reverse Proxy with HTTPS
-
-To expose SOCops over HTTPS with authentication, proxy through nginx:
-
+Paste this:
 ```nginx
 server {
-    listen 443 ssl;
-    server_name socops.yourcompany.com;
-
-    ssl_certificate     /etc/ssl/certs/socops.crt;
-    ssl_certificate_key /etc/ssl/private/socops.key;
-
+    listen 8080;
+    server_name _;
+    
     auth_basic "SOCops";
     auth_basic_user_file /etc/nginx/.htpasswd;
-
+    
     location / {
         proxy_pass http://127.0.0.1:8081;
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
     }
 }
 ```
 
-Create the password file:
+Then:
 ```bash
-htpasswd -c /etc/nginx/.htpasswd analyst
+sudo systemctl restart nginx
+
+# SOCops now available at port 8080 with password
 ```
 
-After adding a reverse proxy, bind SOCops to localhost only by editing the bind address in `app.py`:
-
-```python
-# In main():
-server = http.server.ThreadingHTTPServer(("127.0.0.1", SOCOPS_PORT), Handler)
-```
-
-### 13.5 File Permissions
+### Protect Your Credentials
 
 ```bash
-# App files — readable by service user only
-chown -R YOUR_USER:YOUR_USER ~/claude/socops/
-chmod 750 ~/claude/socops/
-chmod 640 ~/claude/socops/*.py
+# .env file permissions
 chmod 600 ~/claude/socops/.env
+
+# Database file permissions
 chmod 600 ~/claude/socops/socops.db
-```
 
-The database contains full alert data including any sensitive fields captured by Wazuh (usernames, commands, file paths). Treat it with the same care as the Wazuh data itself.
+# Never put .env in git
+echo ".env" >> ~/claude/socops/.gitignore
+echo "socops.db" >> ~/claude/socops/.gitignore
+```
 
 ---
 
-## 14. Maintenance Tasks
+## Part 13: Getting Help
 
-### 14.1 Updating SOCops
+If something breaks:
 
-SOCops has no package manager — updates are applied by replacing source files.
+1. **Check logs first:**
+   ```bash
+   sudo journalctl -u socops -n 50   # last 50 lines
+   sudo journalctl -u socops -f      # follow live
+   ```
 
-```bash
-# Stop the service
-sudo systemctl stop socops
+2. **Check database:**
+   ```bash
+   sqlite3 socops.db
+   SELECT COUNT(*) FROM alerts;      # how many alerts?
+   SELECT status, COUNT(*) FROM alerts GROUP BY status;  # by status
+   ```
 
-# Backup current state
-cp ~/claude/socops/socops.db /backup/socops-pre-update-$(date +%Y%m%d).db
-cp -r ~/claude/socops/ /backup/socops-src-$(date +%Y%m%d)/
+3. **Test Wazuh connection:**
+   ```bash
+   curl -k "https://YOUR.WAZUH.HOST/auth/login"
+   ```
 
-# Apply new files (copy new .py files)
-cp /path/to/new/app.py ~/claude/socops/
-cp /path/to/new/db.py  ~/claude/socops/
-# etc.
-
-# Start service — init_db() will apply any schema migrations on startup
-sudo systemctl start socops
-sudo journalctl -u socops -f    # watch for startup errors
-```
-
-### 14.2 Updating Python Dependencies
-
-```bash
-pip3 install --upgrade anthropic pyTelegramBotAPI --break-system-packages
-sudo systemctl restart socops
-```
-
-Check the Anthropic SDK changelog before upgrading — the API interface occasionally changes between major versions.
-
-### 14.3 Rotating API Keys
-
-When rotating an API key:
-
-1. Generate the new key in the provider's dashboard.
-2. Edit `.env`: replace the old key value.
-3. Restart the service: `sudo systemctl restart socops`
-4. Verify functionality: check logs for errors, test an enrichment lookup or analysis.
-5. Revoke the old key in the provider's dashboard.
-
-Never put the old and new key in `.env` simultaneously.
-
-### 14.4 Reviewing Suppression Rules
-
-Monthly suppression rule review:
-
-1. Open **Suppressions** in the UI.
-2. Review all rules with `expires_at` in the past — delete or renew them.
-3. Review rules with `hits = 0` after 7+ days — the condition may no longer match (check for typos or rule changes in Wazuh).
-4. Review rules with very high hit counts — confirm the suppressed alerts are still genuinely benign.
-5. Cross-reference with the **Noisy Rules** table on the Metrics page — identify new candidates for suppression.
-
-### 14.5 Database Maintenance
-
-**Monthly:**
-```bash
-# Check database size
-du -sh ~/claude/socops/socops.db
-
-# Count rows by status
-python3 -c "
-import sqlite3
-conn = sqlite3.connect('~/claude/socops/socops.db')
-for row in conn.execute('SELECT status, COUNT(*) FROM alerts GROUP BY status'):
-    print(f'{row[0]:15} {row[1]}')
-"
-```
-
-**Quarterly:**
-- Prune old resolved alerts (see section 6.5)
-- Run VACUUM to reclaim space
-- Review and rotate database backup retention
-
-**Annually:**
-- Assess whether `full_json` storage is needed for old alerts — this column is the main driver of database size
-- Consider archiving the database and starting fresh if size becomes unmanageable
+4. **Restart and observe:**
+   ```bash
+   sudo systemctl restart socops
+   sleep 3
+   sudo journalctl -u socops -f
+   ```
 
 ---
 
-## 15. Troubleshooting
-
-### 15.1 App Won't Start
-
-**Python import error:**
-```
-ModuleNotFoundError: No module named 'anthropic'
-```
-Fix: `pip3 install anthropic --break-system-packages`
-
-**Port already in use:**
-```
-OSError: [Errno 98] Address already in use
-```
-Fix: find and kill the existing process: `ps aux | grep "[a]pp.py" | awk '{print $2}' | xargs kill -9`
-Or change `SOCOPS_PORT` to an unused port.
-
-**`.env` not found (systemd):**
-The service unit uses `EnvironmentFile=` which fails silently if the file doesn't exist. Check with:
-```bash
-sudo systemctl status socops
-# look for "Failed to load environment files"
-```
-Fix: create the `.env` file, then `sudo systemctl start socops`.
-
-**Database permissions error:**
-```
-OperationalError: unable to open database file
-```
-Fix: ensure the service user (`YOUR_USER`) has write permission to the socops directory.
-
-### 15.2 No Alerts Appearing
-
-1. Check that the poller is running: `journalctl -u socops | grep poller`
-2. Check `last_poll` via API: `curl -s http://localhost:8081/api/stats | python3 -c "import json,sys; print(json.load(sys.stdin)['last_poll'])"`
-3. Verify the poll window — if `INITIAL_WINDOW` is `now-1h` and there are no alerts in the last hour, the queue will be empty.
-4. Check Wazuh connectivity (see section 15.3).
-5. Check if alerts exist in Wazuh UI for the same time range — if Wazuh has no alerts, SOCops will have none either.
-
-### 15.3 Wazuh Connection Errors
-
-**Authentication failure:**
-```
-[poller] error: Login failed — no session cookie returned
-```
-Fix: verify `WAZUH_USER` and `WAZUH_PASS` are correct. Test manually:
-```bash
-curl -k -s -X POST "https://<WAZUH_HOST>/auth/login" \
-  -H "Content-Type: application/json" \
-  -d '{"username":"monitor","password":"yourpassword"}' | head -c 200
-```
-Should return a response containing `security_authentication` cookie.
-
-**Connection refused / timeout:**
-```
-[poller] error: <urlopen error [Errno 111] Connection refused>
-[poller] error: <urlopen error timed out>
-```
-Fix: verify `WAZUH_HOST` is reachable and port 443 is open:
-```bash
-curl -k -I "https://<WAZUH_HOST>/auth/login"
-```
-
-**SSL error:**
-```
-[poller] error: SSL: CERTIFICATE_VERIFY_FAILED
-```
-This should not occur since certificate verification is disabled. If it does, check that `wazuh.py` line 46 reads `self._ctx.verify_mode = ssl.CERT_NONE`.
-
-### 15.4 AI Analysis Not Running
-
-**Missing API key:**
-```
-analyst.py falls back to stub
-```
-Set `ANTHROPIC_API_KEY` in `.env` and restart.
-
-**Insufficient credits:**
-The analyst stub analysis will include a note: `*(Claude API error 400: Your credit balance is too low)*`
-Fix: add credits to your Anthropic account at console.anthropic.com.
-
-**Analysis stuck / not progressing:**
-Check the analyst thread is alive via log output. If no `[analyst]` lines appear after startup, the thread may have died. Restart the service.
-
-To force re-analysis of all alerts (e.g., after adding API key):
-```bash
-python3 -c "
-import sqlite3
-conn = sqlite3.connect('~/claude/socops/socops.db')
-conn.execute(\"UPDATE alerts SET analysis=NULL WHERE analysis LIKE '%stub%' OR analysis LIKE '%API error%'\")
-conn.commit()
-print(conn.total_changes, 'alerts queued for re-analysis')
-"
-```
-The analyst worker will pick these up automatically.
-
-### 15.5 Enrichment Not Working
-
-**No API keys configured:**
-No enrichment occurs. Set `OTX_KEY` and/or `ABUSEIPDB_KEY` in `.env` and restart.
-
-**Rate limit exceeded:**
-AbuseIPDB returns HTTP 429 after 1,000 daily lookups. The enrichment worker logs errors per IP and continues. Wait until midnight UTC for the limit to reset.
-
-**All srcip fields are empty:**
-Many alert types (FIM, systemd, CIS) do not have a source IP — enrichment only applies to alerts with a non-empty `srcip` field. This is expected.
-
-**No risk badges visible despite API keys being set:**
-Check enrichment progress (section 8.3). Newly added keys will only enrich new alerts going forward plus backlog. If the IP has a score of 0, no badge is shown (by design — 0 risk is unremarkable).
-
-### 15.6 Notifications Not Sending
-
-**Webhook not firing:**
-1. Verify `NOTIFY_WEBHOOK` is set and the URL is reachable from the server: `curl -s <NOTIFY_WEBHOOK>`
-2. Check `NOTIFY_LEVEL` — if set to 12, only alerts with rule_level ≥ 12 trigger it. Lower it for testing.
-3. Check for errors in logs: `journalctl -u socops | grep notif`
-
-**Email not sending:**
-1. Verify SMTP connectivity: `telnet <SMTP_HOST> <SMTP_PORT>`
-2. Test with Python directly (section 10.3).
-3. For Gmail: ensure you're using an App Password (account password won't work with 2FA enabled).
-4. Check spam folder — the first email from a new sender may be filtered.
-
-### 15.7 UI Issues
-
-**Alert detail panel shows content but no action bar buttons:**
-Hard-refresh the browser (`Ctrl+Shift+R`) to clear cached JavaScript.
-
-**Dashboard shows "Loading dashboard data..." indefinitely:**
-Open browser developer tools → Console and look for JavaScript errors. The most common cause is a syntax error in the dashboard script introduced by a code change. Check `journalctl -u socops` for Python errors on the `/api/data` endpoint.
-
-**Queue shows "No alerts." when you expect alerts:**
-Check the active status and category filters — a combination with no matches produces an empty list. Reset to All + All.
-
-**Export buttons produce empty files:**
-The export uses the current status filter. If filtered to `fp` and there are no FP alerts, the export is empty. Check the filter settings.
-
-### 15.8 Database Errors
-
-**Database is locked:**
-```
-OperationalError: database is locked
-```
-This can occur under heavy concurrent load. SOCops opens a new connection per query (`_get_conn()` creates a new `sqlite3.connect()` each call). If this becomes persistent, it indicates a long-running transaction. Restart the service.
-
-For production environments with high write concurrency, consider enabling WAL mode:
-```bash
-python3 -c "
-import sqlite3
-conn = sqlite3.connect('~/claude/socops/socops.db')
-conn.execute('PRAGMA journal_mode=WAL')
-conn.commit()
-print(conn.execute('PRAGMA journal_mode').fetchone())
-"
-```
-WAL mode allows concurrent reads and writes and significantly reduces lock contention.
-
-**Database corruption:**
-```
-DatabaseError: database disk image is malformed
-```
-Restore from backup (section 6.4). If no backup is available:
-```bash
-sqlite3 ~/claude/socops/socops.db ".recover" | sqlite3 ~/claude/socops/socops-recovered.db
-```
-
-### 15.9 High Memory or CPU
-
-**High CPU:**
-Usually caused by the analyst worker tight-looping if `time.sleep()` is not being reached. Check logs for rapid repeated `[analyst]` lines. Restart the service.
-
-**High memory:**
-SQLite caches query results in memory. For databases over 100 MB, the process may use 150–300 MB of RSS. This is expected. If memory grows unboundedly over time, check for a connection leak (connections not being closed after use in `_get_conn()`).
-
-The ThreadingHTTPServer spawns a new thread per HTTP request. Each thread holds memory for the duration of the request. Under very high request rates (e.g., aggressive browser polling), memory can spike. Ensure browser pages are not polling more frequently than every 60 seconds.
-
----
-
-## 16. Disaster Recovery
-
-### Full Recovery Procedure
-
-**Scenario:** Server destroyed or SOCops directory deleted.
-
-1. Provision a new server with Python 3.10+.
-2. Copy SOCops source files to `~/claude/socops/`.
-3. Install dependencies: `pip3 install anthropic pyTelegramBotAPI --break-system-packages`
-4. Restore database from backup: `cp /backup/socops-YYYYMMDD.db ~/claude/socops/socops.db`
-5. Create `.env` with credentials (from password manager / secrets vault).
-6. Start the service: `sudo systemctl enable --now socops`
-7. Verify: `curl -s http://localhost:8081/api/stats`
-
-Recovery time: ~15 minutes from a recent backup.
-
-### Database-Only Recovery
-
-**Scenario:** Database corrupted or accidentally deleted, app is still running.
-
-1. Stop the service: `sudo systemctl stop socops`
-2. Restore: `cp /backup/socops-YYYYMMDD.db ~/claude/socops/socops.db`
-3. Start: `sudo systemctl start socops`
-
-Alerts created between the backup date and the restoration will be re-fetched from Wazuh on the next poll (within `POLL_INTERVAL` seconds). Suppression rules, cases, case links, and notes created after the backup date will be lost.
-
-### Recovery Without a Backup
-
-If no database backup exists:
-
-1. Delete the corrupt database file.
-2. Start SOCops — `init_db()` creates a fresh empty database.
-3. Set `INITIAL_WINDOW=now-30d` in `.env` to back-fill alerts from Wazuh.
-4. Restart. Wazuh alert history will be re-imported (subject to Wazuh index retention).
-
-Analyst notes, cases, and suppression rules cannot be recovered without a backup.
-
----
-
-*SOCops Administration Manual · Last updated 2026-03-28*
+**That's it. You're an SOCops administrator now.** If anything confuses you, the logs tell you exactly what went wrong.
